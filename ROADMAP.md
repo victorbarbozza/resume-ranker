@@ -22,14 +22,17 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 3. Database
 
-- [ ] Fixed area list (`engineering`, `data`, `design`, `product`, `marketing`, `sales`, `finance`, `people`, `operations`, `other`) as a shared constant
-- [ ] Tables: `jobs`, `candidates`, `resume_files`, `evaluations`, `tasks`, `users`, `sessions`, `rate_limits`
-- [ ] Generated `search_vector` on `candidates` (profile skills weight A, resume text weight D) with a GIN index
-- [ ] First migration with `bun run db:generate`
-- [ ] Migrations run on boot (`src/instrumentation.ts`) and ship in the image
-- [ ] One repository per table
-- [ ] Integration test setup: separate test database, migrations before the suite, Postgres service in CI
-- [ ] Repository integration tests
+- [x] Fixed area list (`engineering`, `data`, `design`, `product`, `marketing`, `sales`, `finance`, `people`, `operations`, `other`) as a shared constant
+- [x] Tables: `jobs`, `candidates`, `resume_files`, `evaluations`, `tasks`, `users`, `sessions`, `rate_limits`
+- [x] `search_vector` on `candidates`, built from the LLM profile only (skills weight A, summary weight C), with a GIN index
+- [x] Search module (`src/server/shared/search`): one normalizer for indexing and queries (case, accents, C# / C++ / .NET, Node.js spellings, synonyms), weights and config in one place
+- [x] Shortlist query: same area, at least one must-have match, top N by `ts_rank_cd`, with a test suite for ranking, filters and term matching
+- [x] Every LLM output stores the model and prompt version that produced it
+- [x] First migration with `bun run db:generate`
+- [x] Migrations run on boot (`src/instrumentation.ts`) and ship in the image
+- [x] One repository per table
+- [x] Integration test setup: separate test database, migrations before the suite, Postgres service in CI
+- [x] Repository integration tests
 
 ## 4. Queue and worker
 
@@ -52,6 +55,8 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Output validated with TypeBox; invalid output counts as a failed attempt
 - [ ] Provider 429 reschedules the task without spending an attempt
 - [ ] Pace: at least `60 s ÷ LLM_RPM` between calls
+- [ ] Prompts: one file per task type in `src/server/tasks/prompts/`, each with a `PROMPT_VERSION`; bump it on every change
+- [ ] Snapshot test of every built prompt, so a prompt change shows up in the pull request diff
 - [ ] Tests with a mocked `fetch`
 
 ## 6. Jobs API
@@ -60,7 +65,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] `GET /api/jobs` and `GET /api/jobs/:id`
 - [ ] `PATCH /api/jobs/:id` bumps `version` and queues a new analysis
 - [ ] `DELETE /api/jobs/:id` (soft delete)
-- [ ] `job.analyze` processor: must-have and nice-to-have requirements
+- [ ] `job.analyze` processor: must-have and nice-to-have requirements, as canonical skill names ("Node.js", "PostgreSQL")
 - [ ] Integration tests
 
 ## 7. Resumes API
@@ -70,16 +75,15 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Files over 5 MB and empty text are rejected with a clear error
 - [ ] `GET /api/candidates` with each status
 - [ ] `POST /api/candidates/:id/retry` and `DELETE /api/candidates/:id` (soft delete)
-- [ ] `candidate.extract_profile` processor: areas, skills, years, seniority, languages, summary
+- [ ] `candidate.extract_profile` processor: areas, skills, years, seniority, languages, summary; skills use the same canonical names as job requirements
 - [ ] Integration tests
 
 ## 8. Ranking API
 
-- [ ] Shortlist query: same area, at least one must-have match, top N by `ts_rank_cd`
 - [ ] `POST /api/jobs/:id/evaluations` with `shortlist` or `selected` scope, split into batches of 5
 - [ ] `candidates.evaluate` processor: fixed rubric, strengths with evidence, gaps
 - [ ] Prompt guardrails: resume text delimited as data, output validated against the schema
-- [ ] `GET /api/jobs/:id/evaluations` with progress counts and stale flags
+- [ ] `GET /api/jobs/:id/evaluations` with progress counts and stale flags (older job version or older prompt version)
 - [ ] Integration tests
 
 ## 9. Access control
@@ -121,4 +125,6 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## Improvements (after v1)
 
+- [ ] Re-extract profiles after the profile prompt changes: one LLM call per resume, started from the candidates page
+- [ ] Language-aware search: stemming per language, so plurals match singulars
 - [ ] Editable job requirements: `PATCH /api/jobs/:id/requirements`, `requirements_source` column so re-analysis never overwrites a person's edits, version bump, editable chips in the UI

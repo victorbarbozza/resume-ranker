@@ -26,7 +26,7 @@ bun run dev:up    # Postgres on localhost:55433
 bun run dev       # http://localhost:3000
 ```
 
-`curl http://localhost:3000/api/health` answers `{"status":"ok"}` when the app reaches the database.
+`curl http://localhost:3000/api/health` answers `{"status":"ok"}` when the app reaches the database. Migrations run when the server starts.
 
 To run the production image instead of the dev server:
 
@@ -38,26 +38,27 @@ docker compose up -d --build
 
 Nothing needs to be configured to run locally: every variable has a default that matches `compose.yaml`. Set a variable in the shell to change it, for example `APP_PORT=3001 docker compose up -d`.
 
-| Variable                              | Default                                            | Used by                        |
-| ------------------------------------- | -------------------------------------------------- | ------------------------------ |
-| `DATABASE_URL`                        | `postgres://dev:dev@localhost:55433/resume_ranker` | app                            |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` | `dev` / `dev`                                      | compose (Postgres and the app) |
-| `POSTGRES_PORT`                       | `55433`                                            | compose: host port of Postgres |
-| `APP_PORT`                            | `3000`                                             | compose: host port of the app  |
+| Variable                              | Default                                                 | Used by                        |
+| ------------------------------------- | ------------------------------------------------------- | ------------------------------ |
+| `DATABASE_URL`                        | `postgres://dev:dev@localhost:55433/resume_ranker`      | app                            |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` | `dev` / `dev`                                           | compose (Postgres and the app) |
+| `POSTGRES_PORT`                       | `55433`                                                 | compose: host port of Postgres |
+| `APP_PORT`                            | `3000`                                                  | compose: host port of the app  |
+| `TEST_DATABASE_URL`                   | `postgres://dev:dev@localhost:55433/resume_ranker_test` | tests (must end in `_test`)    |
 
 ## Scripts
 
-| Script                                      | What it does                                 |
-| ------------------------------------------- | -------------------------------------------- |
-| `bun run dev`                               | Next.js dev server                           |
-| `bun run build`                             | Production build (standalone output)         |
-| `bun run lint`                              | ESLint                                       |
-| `bun run typecheck`                         | Route types, then `tsc --noEmit`             |
-| `bun run test`                              | Unit tests with `bun test`                   |
-| `bun run format`                            | Prettier                                     |
-| `bun run db:generate`                       | Generate a migration from the Drizzle schema |
-| `bun run db:migrate`                        | Apply migrations                             |
-| `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres           |
+| Script                                      | What it does                                        |
+| ------------------------------------------- | --------------------------------------------------- |
+| `bun run dev`                               | Next.js dev server                                  |
+| `bun run build`                             | Production build (standalone output)                |
+| `bun run lint`                              | ESLint                                              |
+| `bun run typecheck`                         | Route types, then `tsc --noEmit`                    |
+| `bun run test`                              | Unit and integration tests (needs `bun run dev:up`) |
+| `bun run format`                            | Prettier                                            |
+| `bun run db:generate`                       | Generate a migration from the Drizzle schema        |
+| `bun run db:migrate`                        | Apply migrations                                    |
+| `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres                  |
 
 ## Project layout
 
@@ -74,10 +75,20 @@ src/
     shared/       database, connectors, HTTP wrapper
 ```
 
-A request flows route file → handler → service → repository or connector, and no layer is skipped. Client code may import types from `src/server`, never modules; ESLint enforces it.
+A request flows route file → handler → service → repository or connector, and no layer is skipped. Client code may import types from `src/server`, never modules; ESLint enforces it. Code that both sides run, such as the list of areas, lives in `src/shared`.
+
+## Tests
+
+Unit tests sit next to the code they cover. Repository tests are integration tests: they run against a separate `resume_ranker_test` database in the same Postgres, which the suite creates and migrates on its own and empties before each test. The suite refuses any database whose name does not end in `_test`.
 
 ## Naming
 
 - Files and folders: kebab-case (`create-job.ts`, `job-form.tsx`)
 - Components, classes and types: PascalCase (`JobForm`, `HTTPError`)
 - Functions and variables: camelCase (`createJob`)
+
+## Comments
+
+- Every top-level declaration in `src` has a JSDoc: functions, components, constants, types, tables and schemas. ESLint enforces it.
+- Properties carry no JSDoc. What a column or field needs explained goes in the JSDoc of its table or schema, as a list.
+- No inline `//` comments, and no JSDoc in tests: test names describe them.
