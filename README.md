@@ -22,11 +22,10 @@ Rank candidates for a job opening. Register a job, upload resumes (TXT, PDF or D
 
 ```bash
 bun install
-bun run dev:up    # Postgres on localhost:55433
-bun run dev       # http://localhost:3000
+bun run dev       # starts Postgres in Docker, then http://localhost:3000
 ```
 
-`curl http://localhost:3000/api/health` answers `{"status":"ok"}` when the app reaches the database. Migrations run when the server starts.
+`bun run dev` checks that Docker is running, starts Postgres and waits until it is healthy, then runs every app process with its name in front of each log line. The server logs that it reached the database and applied any pending migrations. Ctrl+C stops the app; Postgres keeps running until `bun run dev:down`. `curl http://localhost:3000/api/health` answers `{"status":"ok"}` while the database is up.
 
 To run the production image instead of the dev server:
 
@@ -48,17 +47,17 @@ Nothing needs to be configured to run locally: every variable has a default that
 
 ## Scripts
 
-| Script                                      | What it does                                        |
-| ------------------------------------------- | --------------------------------------------------- |
-| `bun run dev`                               | Next.js dev server                                  |
-| `bun run build`                             | Production build (standalone output)                |
-| `bun run lint`                              | ESLint                                              |
-| `bun run typecheck`                         | Route types, then `tsc --noEmit`                    |
-| `bun run test`                              | Unit and integration tests (needs `bun run dev:up`) |
-| `bun run format`                            | Prettier                                            |
-| `bun run db:generate`                       | Generate a migration from the Drizzle schema        |
-| `bun run db:migrate`                        | Apply migrations                                    |
-| `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres                  |
+| Script                                      | What it does                                                |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| `bun run dev`                               | Checks Docker, starts Postgres, then runs the app processes |
+| `bun run build`                             | Production build (standalone output)                        |
+| `bun run lint`                              | ESLint                                                      |
+| `bun run typecheck`                         | Route types, then `tsc --noEmit`                            |
+| `bun run test`                              | Unit and integration tests (needs `bun run dev:up`)         |
+| `bun run format`                            | Prettier                                                    |
+| `bun run db:generate`                       | Generate a migration from the Drizzle schema                |
+| `bun run db:migrate`                        | Apply migrations                                            |
+| `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres                          |
 
 ## Project layout
 

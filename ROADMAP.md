@@ -19,6 +19,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] Dockerfile (standalone output, runs on Node) and `app` service in compose
 - [x] CI workflow: lint, typecheck, format, test, build
 - [x] README with local setup and naming rules
+- [x] `bun run dev` (`scripts/dev.ts`): checks Docker, waits for a healthy Postgres, runs every app process with prefixed logs
 
 ## 3. Database
 
@@ -42,7 +43,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Lock recovery: `running` for more than 5 minutes goes back to `queued`
 - [ ] Processor registry: one processor per task type
 - [ ] Maintenance tick: delete old `rate_limits` windows and expired sessions
-- [ ] `src/worker.ts` entry, `bun run dev:worker`, bundled into the image
+- [ ] `src/worker.ts` entry, bundled into the image, and added to the process list in `scripts/dev.ts`
 - [ ] `worker` service in compose
 - [ ] Integration tests: claim, concurrent claims, retry, dead, lock recovery
 
