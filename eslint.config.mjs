@@ -65,7 +65,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts'],
     ignores: ['src/**/*.test.ts'],
     plugins: { jsdoc },
     rules: {
