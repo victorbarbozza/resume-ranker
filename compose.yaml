@@ -1,7 +1,3 @@
-# Local stack.
-#   bun run dev:up              Postgres only, for `bun run dev` on the host
-#   docker compose up -d --build  Postgres plus the production image of the app
-# Every published port binds to 127.0.0.1; POSTGRES_PORT and APP_PORT change them.
 name: resume-ranker
 
 services:
@@ -32,7 +28,6 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      # the runtime image has no curl; Node's fetch does the same job
       test:
         [
           'CMD',
