@@ -2,6 +2,17 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTypescript from 'eslint-config-next/typescript'
 import prettier from 'eslint-config-prettier/flat'
+import jsdoc from 'eslint-plugin-jsdoc'
+
+const topLevelDeclarations = [
+  'Program > ExportNamedDeclaration[declaration]',
+  'Program > ExportDefaultDeclaration',
+  'Program > FunctionDeclaration',
+  'Program > VariableDeclaration',
+  'Program > ClassDeclaration',
+  'Program > TSTypeAliasDeclaration',
+  'Program > TSInterfaceDeclaration',
+]
 
 export default defineConfig([
   ...nextVitals,
@@ -31,7 +42,6 @@ export default defineConfig([
     },
   },
   {
-    // client code may use API contract types from src/server, never its modules
     files: [
       'src/components/**',
       'src/hooks/**',
@@ -50,6 +60,26 @@ export default defineConfig([
                 'Client code can import types from src/server, never modules.',
             },
           ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/**/*.test.ts'],
+    plugins: { jsdoc },
+    rules: {
+      'jsdoc/require-jsdoc': [
+        'error',
+        {
+          require: {
+            FunctionDeclaration: false,
+            ArrowFunctionExpression: false,
+            FunctionExpression: false,
+            ClassDeclaration: false,
+            MethodDefinition: false,
+          },
+          contexts: topLevelDeclarations,
         },
       ],
     },

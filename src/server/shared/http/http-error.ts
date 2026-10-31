@@ -1,3 +1,4 @@
+/** Error code for each status when the thrower gives none */
 const defaultCodes: Record<number, string> = {
   400: 'ERR_BAD_REQUEST',
   401: 'ERR_UNAUTHORIZED',
@@ -12,14 +13,18 @@ const defaultCodes: Record<number, string> = {
   503: 'ERR_SERVICE_UNAVAILABLE',
 }
 
+/**
+ * Options of an HTTPError.
+ *
+ * - `statusCode`: HTTP status code; 500 when omitted
+ * - `code`: stable code the client can branch on; derived from the status when omitted
+ * - `errorData`: extra fields merged into the error body
+ * - `expose`: whether the message reaches the client; true below 500 by default
+ */
 export type HTTPErrorOptions = {
-  /** HTTP status code; 500 when omitted */
   statusCode?: number
-  /** Stable code the client can branch on; derived from the status when omitted */
   code?: string
-  /** Extra fields merged into the error body */
   errorData?: Record<string, unknown>
-  /** Whether the message reaches the client; true below 500 by default */
   expose?: boolean
   cause?: unknown
 }
