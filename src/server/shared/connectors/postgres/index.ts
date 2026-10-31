@@ -1,22 +1,32 @@
-import { drizzle } from 'drizzle-orm/postgres-js'
+import type { PgDatabase } from 'drizzle-orm/pg-core'
+import { drizzle, type PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
 import { databaseUrl } from '@/server/config/env'
 import * as schema from '@/server/shared/database/schema'
 
-// `next dev` re-evaluates modules on every change; keeping the client on
-// globalThis stops each reload from opening a new connection pool
+/** globalThis with a slot for the pool, kept across `next dev` reloads */
 const globalForPostgres = globalThis as typeof globalThis & {
   postgresClient?: ReturnType<typeof postgres>
 }
 
+/**
+ * One connection pool per process. `next dev` re-evaluates modules on every
+ * change, so outside production the pool is kept on globalThis. Notices are
+ * dropped: they are informational ("already exists, skipping").
+ */
 const client =
-  globalForPostgres.postgresClient ?? postgres(databaseUrl, { max: 5 })
+  globalForPostgres.postgresClient ??
+  postgres(databaseUrl, { max: 5, onnotice: () => {} })
 if (process.env.NODE_ENV !== 'production') {
   globalForPostgres.postgresClient = client
 }
 
+/** Drizzle client for the whole server, typed with every table */
 export const db = drizzle(client, { schema })
+
+/** The database itself or an open transaction; repositories accept either */
+export type Executor = PgDatabase<PostgresJsQueryResultHKT, typeof schema>
 
 /** Throws when the database cannot answer a trivial query */
 export const checkConnection = async (): Promise<void> => {
