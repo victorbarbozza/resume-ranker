@@ -32,12 +32,12 @@ export const enqueue = async <Type extends TaskType>(
   type: Type,
   payload: TaskPayloads[Type],
   executor: Executor = db
-): Promise<ITask<Type>> => {
+): Promise<ITask> => {
   const [row] = await executor
     .insert(tasksTable)
     .values({ type, payload })
     .returning()
-  return toTask(row) as ITask<Type>
+  return toTask(row)
 }
 
 /** A task by id */
