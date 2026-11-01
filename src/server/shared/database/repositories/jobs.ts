@@ -124,6 +124,22 @@ export const markAnalysisFailed = async (
   return rows.length > 0
 }
 
+/**
+ * Sends a failed analysis back to pending, for another try at the current
+ * version. Returns undefined when the job is gone or its analysis did not fail.
+ */
+export const reopenFailedAnalysis = async (
+  id: string,
+  executor: Executor = db
+): Promise<IJob | undefined> => {
+  const [row] = await executor
+    .update(jobsTable)
+    .set({ status: 'pending' })
+    .where(and(eq(jobsTable.id, id), isLive, eq(jobsTable.status, 'failed')))
+    .returning()
+  return row ? toJob(row) : undefined
+}
+
 /** Hides a job from every read; the row stays */
 export const softDelete = async (id: string): Promise<boolean> => {
   const rows = await db
