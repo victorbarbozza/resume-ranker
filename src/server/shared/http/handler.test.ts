@@ -20,6 +20,8 @@ const eventSchema = Type.Object({
   ),
 })
 
+const noInput = { eventSchema: Type.Object({}) }
+
 describe('httpHandler', () => {
   const consoleError = spyOn(console, 'error').mockImplementation(() => {})
 
@@ -27,9 +29,7 @@ describe('httpHandler', () => {
 
   test('passes the validated event to the handler and answers with its result', async () => {
     const handler = httpHandler(
-      async (event: { body: { title: string } }) => ({
-        title: event.body.title,
-      }),
+      async (event) => ({ title: event.body.title }),
       { eventSchema, successStatusCode: 201 }
     )
 
@@ -51,7 +51,7 @@ describe('httpHandler', () => {
   })
 
   test('answers 400 when the body is not valid JSON', async () => {
-    const handler = httpHandler(async () => ({}))
+    const handler = httpHandler(async () => ({}), noInput)
 
     const response = await handler(post('{not json'))
 
@@ -60,7 +60,12 @@ describe('httpHandler', () => {
   })
 
   test('reads path and query parameters', async () => {
-    const handler = httpHandler(async (event) => event)
+    const handler = httpHandler(async (event) => event, {
+      eventSchema: Type.Object({
+        pathParameters: Type.Object({ jobId: Type.String() }),
+        queryStringParameters: Type.Object({ page: Type.String() }),
+      }),
+    })
 
     const response = await handler(new Request(`${url}?page=2`), {
       params: Promise.resolve({ jobId: 'job-1' }),
@@ -79,7 +84,7 @@ describe('httpHandler', () => {
         code: 'JOB_NOT_FOUND',
         errorData: { jobId: 'job-1' },
       })
-    })
+    }, noInput)
 
     const response = await handler(new Request(url))
 
@@ -94,7 +99,7 @@ describe('httpHandler', () => {
   test('hides the message of unexpected errors', async () => {
     const handler = httpHandler(async () => {
       throw new Error('connection refused at 10.0.0.5')
-    })
+    }, noInput)
 
     const response = await handler(new Request(url))
 
@@ -108,6 +113,7 @@ describe('httpHandler', () => {
 
   test('sends no body for 204', async () => {
     const handler = httpHandler(async () => undefined, {
+      ...noInput,
       successStatusCode: 204,
     })
 

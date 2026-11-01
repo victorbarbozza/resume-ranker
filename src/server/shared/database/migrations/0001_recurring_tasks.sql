@@ -1,0 +1,3 @@
+ALTER TABLE "tasks" DROP CONSTRAINT "tasks_type_check";--> statement-breakpoint
+CREATE UNIQUE INDEX "tasks_one_pending_recurring" ON "tasks" USING btree ("type") WHERE "tasks"."status" in ('queued', 'running') and "tasks"."type" in ('maintenance.cleanup');--> statement-breakpoint
+ALTER TABLE "tasks" ADD CONSTRAINT "tasks_type_check" CHECK ("tasks"."type" in ('job.analyze', 'candidate.extract_profile', 'candidates.evaluate', 'maintenance.cleanup'));

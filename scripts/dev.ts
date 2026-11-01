@@ -1,13 +1,31 @@
-/** A long-running process that `bun run dev` starts, prefixes and watches */
+/** A process that `bun run dev` starts with its name in front of each log line */
 type DevProcess = { name: string; command: string[]; color: string }
 
-/** Every process the app runs in development; the worker joins this list once it exists */
-const processes: DevProcess[] = [
+/** The migration step: the same entry the image runs as the `migrate` service */
+const migrateProcess: DevProcess = {
+  name: 'migrate',
+  command: ['bun', 'src/migrate.ts'],
+  color: '\x1b[33m',
+}
+
+/** The app processes, with live reload in place of `node server.js` and `node worker.mjs` */
+const appProcesses: DevProcess[] = [
   { name: 'web', command: ['bunx', 'next', 'dev'], color: '\x1b[36m' },
+  {
+    name: 'worker',
+    command: ['bun', '--watch', 'src/worker.ts'],
+    color: '\x1b[35m',
+  },
 ]
 
 /** Host port of the compose Postgres, as compose.yaml publishes it */
 const postgresPort = process.env.POSTGRES_PORT ?? '55433'
+
+/** Port of the dev web server; `next dev` reads PORT too */
+const webPort = process.env.PORT ?? '3000'
+
+/** How long the web server has to answer its health route */
+const HEALTH_TIMEOUT_MS = 60_000
 
 /** Whether the terminal shows colors */
 const colorful = Boolean(process.stdout.isTTY)
@@ -15,6 +33,9 @@ const colorful = Boolean(process.stdout.isTTY)
 /** Wraps text in an ANSI color when the terminal shows colors */
 const paint = (text: string, color: string) =>
   colorful ? `${color}${text}\x1b[0m` : text
+
+/** Prints the title of a step, like a CI log */
+const step = (title: string) => console.info(paint(`▶ ${title}`, '\x1b[1m'))
 
 /** Prints a finished step */
 const done = (message: string) =>
@@ -28,7 +49,7 @@ const fail = (message: string, details = ''): never => {
 }
 
 /** Runs a command to completion and returns its exit code and combined output */
-const run = async (command: string[]) => {
+const runQuiet = async (command: string[]) => {
   const child = Bun.spawn(command, { stdout: 'pipe', stderr: 'pipe' })
   const [stdout, stderr, code] = await Promise.all([
     new Response(child.stdout).text(),
@@ -59,7 +80,7 @@ const prefixLines = async (
   writeLine(pending)
 }
 
-/** Starts one process with its output prefixed by its name */
+/** Starts one process with its output prefixed by its name; `logs` settles once its output is fully written */
 const start = ({ name, command, color }: DevProcess) => {
   const child = Bun.spawn(command, {
     stdout: 'pipe',
@@ -69,20 +90,47 @@ const start = ({ name, command, color }: DevProcess) => {
       : { ...process.env, NO_COLOR: '1' },
   })
   const prefix = paint(`[${name}]`, color)
-  void prefixLines(child.stdout, prefix, (line) => console.info(line))
-  void prefixLines(child.stderr, prefix, (line) => console.error(line))
-  return { name, child }
+  const logs = Promise.all([
+    prefixLines(child.stdout, prefix, (line) => console.info(line)),
+    prefixLines(child.stderr, prefix, (line) => console.error(line)),
+  ])
+  return { name, child, logs }
 }
 
-/** Checks Docker, waits for Postgres, then runs every process until one exits or Ctrl+C */
+/** Asks the health route once a second until it answers 200, or gives up after the timeout */
+const waitForHealth = async (url: string, timeoutMs: number) => {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const healthy = await fetch(url).then(
+      (response) => response.ok,
+      () => false
+    )
+    if (healthy) return true
+    await Bun.sleep(1_000)
+  }
+  return false
+}
+
+/**
+ * Runs the deploy steps on this machine, in the order compose runs them on the
+ * VM: Docker, Postgres, migrations, the app, then its health check. Keeps the
+ * app running until one process exits or Ctrl+C.
+ */
 const main = async () => {
-  const docker = await run(['docker', 'info', '--format', '{{.ServerVersion}}'])
+  step('Check Docker')
+  const docker = await runQuiet([
+    'docker',
+    'info',
+    '--format',
+    '{{.ServerVersion}}',
+  ])
   if (docker.code !== 0) {
     fail('Docker is not running. Start Docker and run `bun run dev` again.')
   }
   done(`Docker ${docker.output} is running`)
 
-  const postgres = await run([
+  step('Start Postgres')
+  const postgres = await runQuiet([
     'docker',
     'compose',
     'up',
@@ -95,8 +143,18 @@ const main = async () => {
   }
   done(`Postgres is healthy on localhost:${postgresPort}`)
 
-  const running = processes.map(start)
-  done(`Started ${running.map(({ name }) => name).join(', ')}`)
+  step('Run migrations')
+  const migration = start(migrateProcess)
+  const [migrationCode] = await Promise.all([
+    migration.child.exited,
+    migration.logs,
+  ])
+  if (migrationCode !== 0) {
+    fail('Migrations failed, so the app was not started.')
+  }
+
+  step('Start web and worker')
+  const running = appProcesses.map(start)
 
   let stopping = false
   const stopAll = async (code: number) => {
@@ -119,6 +177,16 @@ const main = async () => {
       void stopAll(code || 1)
     })
   }
+
+  step('Check health')
+  const healthUrl = `http://localhost:${webPort}/api/health`
+  if (!(await waitForHealth(healthUrl, HEALTH_TIMEOUT_MS))) {
+    console.error(
+      `${paint('✗', '\x1b[31m')} ${healthUrl} did not answer within ${HEALTH_TIMEOUT_MS / 1000} s; stopping`
+    )
+    await stopAll(1)
+  }
+  done(`App ready at http://localhost:${webPort}`)
 }
 
 void main()

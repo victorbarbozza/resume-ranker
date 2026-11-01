@@ -9,7 +9,9 @@ RUN bun install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN bun run build
+RUN bun run build \
+ && bun build src/worker.ts --target=node --outfile=dist/worker.mjs \
+ && bun build src/migrate.ts --target=node --outfile=dist/migrate.mjs
 
 FROM base AS runtime
 ENV NODE_ENV=production \
@@ -19,6 +21,8 @@ ENV NODE_ENV=production \
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/src/server/shared/database/migrations ./migrations
+COPY --from=build --chown=node:node /app/dist/worker.mjs ./worker.mjs
+COPY --from=build --chown=node:node /app/dist/migrate.mjs ./migrate.mjs
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]

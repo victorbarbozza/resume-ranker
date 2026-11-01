@@ -1,11 +1,4 @@
-import {
-  and,
-  arrayContains,
-  desc,
-  eq,
-  getTableColumns,
-  isNull,
-} from 'drizzle-orm'
+import { and, arrayContains, desc, eq, isNull } from 'drizzle-orm'
 
 import { db, type Executor } from '@/server/shared/connectors/postgres'
 import { candidates as candidatesTable } from '@/server/shared/database/schema'
@@ -18,17 +11,34 @@ import type { IGeneratedBy } from '@/server/shared/schemas/generated-by.schema'
 import type { Area } from '@/shared/areas'
 
 /** Every column a candidate exposes; the resume text is read only by the LLM tasks */
-const {
-  resumeText: _resumeText,
-  deletedAt: _deletedAt,
-  ...candidateColumns
-} = getTableColumns(candidatesTable)
+const candidateColumns = {
+  id: candidatesTable.id,
+  name: candidatesTable.name,
+  fileName: candidatesTable.fileName,
+  contentHash: candidatesTable.contentHash,
+  profile: candidatesTable.profile,
+  profileModel: candidatesTable.profileModel,
+  profilePromptVersion: candidatesTable.profilePromptVersion,
+  areas: candidatesTable.areas,
+  status: candidatesTable.status,
+  createdAt: candidatesTable.createdAt,
+  updatedAt: candidatesTable.updatedAt,
+}
 
-/** A candidates row without the columns a candidate never exposes */
-type CandidateRow = Omit<
-  typeof candidatesTable.$inferSelect,
-  'resumeText' | 'deletedAt'
->
+/** A candidates row as candidateColumns reads it */
+type CandidateRow = {
+  id: string
+  name: string | null
+  fileName: string
+  contentHash: string
+  profile: ICandidateProfile | null
+  profileModel: string | null
+  profilePromptVersion: string | null
+  areas: Area[]
+  status: CandidateStatus
+  createdAt: Date
+  updatedAt: Date
+}
 
 /** Maps a row to the candidate the rest of the server sees */
 const toCandidate = (row: CandidateRow): ICandidate => ({

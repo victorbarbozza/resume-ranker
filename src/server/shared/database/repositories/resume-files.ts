@@ -13,7 +13,7 @@ export type ResumeFile = {
 /** Stores the original upload; pass the upload transaction */
 export const create = async (
   candidateId: string,
-  file: Pick<ResumeFile, 'content' | 'mimeType'>,
+  file: { content: Buffer; mimeType: string },
   executor: Executor = db
 ): Promise<void> => {
   await executor.insert(resumeFilesTable).values({

@@ -28,35 +28,40 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] Ready candidates by area (GIN index on `areas`), newest first up to a limit, plus a count of every ready candidate in the area
 - [x] Every LLM output stores the model and prompt version that produced it
 - [x] First migration with `bun run db:generate`
-- [x] Migrations run on boot (`src/instrumentation.ts`) and ship in the image
+- [x] Migrations ship in the image
 - [x] One repository per table
 - [x] Integration test setup: separate test database, migrations before the suite, Postgres service in CI
 - [x] Repository integration tests
 
 ## 4. Queue and worker
 
-- [ ] `enqueue` inside the caller's transaction
-- [ ] Claim with `FOR UPDATE SKIP LOCKED`
-- [ ] Retries with backoff (10 s, 20 s, 40 s, 80 s) and `dead` after the 5th failure
-- [ ] Lock recovery: `running` for more than 5 minutes goes back to `queued`
-- [ ] Processor registry: one processor per task type
-- [ ] Maintenance tick: delete old `rate_limits` windows and expired sessions
-- [ ] `src/worker.ts` entry, bundled into the image, and added to the process list in `scripts/dev.ts`
-- [ ] `worker` service in compose
-- [ ] Integration tests: claim, concurrent claims, retry, dead, lock recovery
+- [x] `enqueue` inside the caller's transaction
+- [x] Claim with `FOR UPDATE SKIP LOCKED`
+- [x] Retries with backoff (10 s, 20 s, 40 s, 80 s) and `dead` after the 5th failure
+- [x] Lock recovery: `running` for more than 5 minutes goes back to `queued`
+- [x] Task settings in one map (`TASKS`: attempts, repeat interval) and one handler per task type; a task without a handler is marked dead
+- [x] Settling checks the claim (attempts as a fencing token), so a recovered task is never settled twice
+- [x] Migrations as their own step before the app (`src/migrate.ts`, `bun run db:migrate`), behind an advisory lock so two runs never overlap
+- [x] `bun run dev` follows the deploy steps: Docker, Postgres, migrations, web and worker, health check
+- [x] `migrate` service in compose: the app and the worker start only after it exits successfully
+- [x] Maintenance as a recurring task (`maintenance.cleanup`, every 10 minutes) that deletes old `rate_limits` windows and expired sessions; the worker keeps exactly one run pending
+- [x] `src/worker.ts` entry, bundled into the image, and added to the process list in `scripts/dev.ts`
+- [x] `worker` service in compose
+- [x] Integration tests: claim, concurrent claims, retry, dead, lock recovery
 
 ## 5. LLM connector
 
-- [ ] `generateJson(prompt, schema)` interface, provider picked by `LLM_PROVIDER`
-- [ ] `fake` provider: deterministic answers, no API key
-- [ ] `gemini` provider over plain `fetch`, with the TypeBox schema as JSON Schema output
+- [ ] Vercel AI SDK (`ai`) behind one `generateJson(prompt, schema)` call, provider picked by `LLM_PROVIDER`
+- [ ] `azure` provider: an Azure OpenAI deployment, configured by resource, deployment and API key
 - [ ] `ollama` provider for a local model
+- [ ] `fake` provider: the AI SDK mock model with deterministic answers, no API key
+- [ ] TypeBox schemas passed to the SDK as JSON Schema for structured output
 - [ ] Output validated with TypeBox; invalid output counts as a failed attempt
 - [ ] Provider 429 reschedules the task without spending an attempt
 - [ ] Pace: at least `60 s ÷ LLM_RPM` between calls
 - [ ] Prompts: one file per task type in `src/server/tasks/prompts/`, each with a `PROMPT_VERSION`; bump it on every change
 - [ ] Snapshot test of every built prompt, so a prompt change shows up in the pull request diff
-- [ ] Tests with a mocked `fetch`
+- [ ] Tests with the mock model
 
 ## 6. Jobs API
 
@@ -64,7 +69,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] `GET /api/jobs` and `GET /api/jobs/:id`
 - [ ] `PATCH /api/jobs/:id` bumps `version` and queues a new analysis
 - [ ] `DELETE /api/jobs/:id` (soft delete)
-- [ ] `job.analyze` processor: must-have and nice-to-have requirements
+- [ ] `job.analyze` handler: must-have and nice-to-have requirements
 - [ ] Integration tests
 
 ## 7. Resumes API
@@ -74,13 +79,13 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Files over 5 MB and empty text are rejected with a clear error
 - [ ] `GET /api/candidates` with each status
 - [ ] `POST /api/candidates/:id/retry` and `DELETE /api/candidates/:id` (soft delete)
-- [ ] `candidate.extract_profile` processor: areas, skills, years, seniority, languages, summary
+- [ ] `candidate.extract_profile` handler: areas, skills, years, seniority, languages, summary
 - [ ] Integration tests
 
 ## 8. Ranking API
 
 - [ ] `POST /api/jobs/:id/evaluations` with `area` scope (every ready candidate of the job's area, up to `RANKING_MAX_CANDIDATES`, 50 by default) or `selected` scope, split into batches of 5; the response says how many the limit left out
-- [ ] `candidates.evaluate` processor: fixed rubric, strengths with evidence, gaps
+- [ ] `candidates.evaluate` handler: fixed rubric, strengths with evidence, gaps
 - [ ] Prompt guardrails: resume text delimited as data, output validated against the schema
 - [ ] `GET /api/jobs/:id/evaluations` with progress counts and stale flags (older job version or older prompt version)
 - [ ] Integration tests
@@ -114,7 +119,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Pulumi project: resource group, network, NSG for 22/80/443, static IP, B1s VM
 - [ ] cloud-init: Docker, 2 GB swap, firewall
 - [ ] `infra.yml`: `pulumi preview` on PRs, `pulumi up` on main, OIDC login
-- [ ] `deploy.yml`: build amd64 and arm64 images, push to GHCR, `compose pull && up -d` over ssh
+- [ ] `deploy.yml`: build amd64 and arm64 images, push to GHCR, `compose pull && up -d --wait` over ssh (Postgres, migrations, app and worker, health check: the steps of `bun run dev`)
 - [ ] GitHub secrets: LLM API key, database password, ssh key
 
 ## 12. Backups
