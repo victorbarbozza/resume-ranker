@@ -51,17 +51,19 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 5. LLM connector
 
-- [ ] Vercel AI SDK (`ai`) behind one `generateJson(prompt, schema)` call, provider picked by `LLM_PROVIDER`
-- [ ] `azure` provider: an Azure OpenAI deployment, configured by resource, deployment and API key
-- [ ] `ollama` provider for a local model
-- [ ] `fake` provider: the AI SDK mock model with deterministic answers, no API key
-- [ ] TypeBox schemas passed to the SDK as JSON Schema for structured output
-- [ ] Output validated with TypeBox; invalid output counts as a failed attempt
-- [ ] Provider 429 reschedules the task without spending an attempt
-- [ ] Pace: at least `60 s ÷ LLM_RPM` between calls
-- [ ] Prompts: one file per task type in `src/server/tasks/prompts/`, each with a `PROMPT_VERSION`; bump it on every change
-- [ ] Snapshot test of every built prompt, so a prompt change shows up in the pull request diff
-- [ ] Tests with the mock model
+- [x] Vercel AI SDK (`ai`) behind one `generateJson(prompt, schema)` call; `LLM_MODEL=<provider>:<model>` picks the model, so switching providers is configuration
+- [x] Providers in one map (package, required variables, default pace); adding one is a package and an entry
+- [x] `azure` provider: `azure:<deployment>` with `AZURE_RESOURCE_NAME` and `AZURE_API_KEY`; requests are not stored by Azure
+- [x] `ollama` provider for a local model, through its OpenAI-compatible API
+- [x] `fake` model by default: the AI SDK mock model with placeholder answers that match each schema, no key; the worker warns when it is on
+- [x] TypeBox schemas passed to the SDK as JSON Schema for structured output
+- [x] Output validated with TypeBox; invalid output counts as a failed attempt
+- [x] Provider 429 reschedules the task without spending an attempt, after the wait the provider asks for
+- [x] Pace: at least `60 s ÷ LLM_RPM` between calls, kept in memory by the connector (one worker)
+- [x] LLM settings from run-time environment variables only; the worker refuses to start when one is missing
+- [x] Prompts: one file per task type in `src/server/tasks/prompts/`, each with a `PROMPT_VERSION`; bump it on every change
+- [x] Snapshot test of every built prompt, so a prompt change shows up in the pull request diff
+- [x] Tests with the mock model
 
 ## 6. Jobs API
 
@@ -69,6 +71,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] `GET /api/jobs` and `GET /api/jobs/:id`
 - [ ] `PATCH /api/jobs/:id` bumps `version` and queues a new analysis
 - [ ] `DELETE /api/jobs/:id` (soft delete)
+- [ ] A TypeBox schema for each task payload; handlers validate the payload before using it, so reading a task needs no cast
 - [ ] `job.analyze` handler: must-have and nice-to-have requirements
 - [ ] Integration tests
 
@@ -86,6 +89,8 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 - [ ] `POST /api/jobs/:id/evaluations` with `area` scope (every ready candidate of the job's area, up to `RANKING_MAX_CANDIDATES`, 50 by default) or `selected` scope, split into batches of 5; the response says how many the limit left out
 - [ ] `candidates.evaluate` handler: fixed rubric, strengths with evidence, gaps
+- [ ] The handler checks that every candidate sent got exactly one result; an unknown id is ignored and a missing one fails the attempt
+- [ ] `fake` model gives each candidate of a batch a placeholder result (today it answers an empty batch)
 - [ ] Prompt guardrails: resume text delimited as data, output validated against the schema
 - [ ] `GET /api/jobs/:id/evaluations` with progress counts and stale flags (older job version or older prompt version)
 - [ ] Integration tests

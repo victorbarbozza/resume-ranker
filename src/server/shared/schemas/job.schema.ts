@@ -14,10 +14,19 @@ export const JOB_TITLE_MAX_LENGTH = 200
 export const JOB_DESCRIPTION_MAX_LENGTH = 20_000
 
 /** Requirements the LLM extracts from a job description */
-export const jobRequirementsSchema = Type.Object({
-  mustHave: Type.Array(Type.String()),
-  niceToHave: Type.Array(Type.String()),
-})
+export const jobRequirementsSchema = Type.Object(
+  {
+    mustHave: Type.Array(Type.String(), {
+      description:
+        'What the job states as required, one requirement per item, such as "5+ years of Node.js"',
+    }),
+    niceToHave: Type.Array(Type.String(), {
+      description:
+        'What the job marks as a plus, preferred or desirable, one per item',
+    }),
+  },
+  { additionalProperties: false }
+)
 
 /** Requirements as the LLM extracts them */
 export type IJobRequirements = Static<typeof jobRequirementsSchema>
