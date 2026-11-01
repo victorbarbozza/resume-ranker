@@ -1,4 +1,4 @@
-import type { TSchema } from 'typebox'
+import type { Static, TSchema } from 'typebox'
 import { Compile } from 'typebox/compile'
 
 import { HTTPError } from './http-error'
@@ -16,11 +16,11 @@ type RouteContext = { params: Promise<Record<string, string | string[]>> }
 /**
  * Options of httpHandler.
  *
- * - `eventSchema`: validates the whole event before the handler runs; a mismatch answers 400
+ * - `eventSchema`: validates the whole event before the handler runs, and gives the handler its event type; a mismatch answers 400. A route without input passes `Type.Object({})`
  * - `successStatusCode`: status of a successful response; 204 sends no body
  */
-export type HttpHandlerOptions = {
-  eventSchema?: TSchema
+export type HttpHandlerOptions<Schema extends TSchema> = {
+  eventSchema: Schema
   successStatusCode?: number
 }
 
@@ -85,15 +85,14 @@ const errorResponse = (error: unknown): Response => {
  *
  * Builds the event from the request (body, path and query parameters),
  * validates it against `eventSchema`, answers with the handler's result as
- * JSON and maps any error to `{ error, message }`.
+ * JSON and maps any error to `{ error, message }`. The handler's event type
+ * comes from the schema, so the two cannot disagree.
  */
-export const httpHandler = <Event = HttpEvent, Output = unknown>(
-  handlerFunction: (event: Event) => Promise<Output>,
-  options: HttpHandlerOptions = {}
+export const httpHandler = <Schema extends TSchema, Output>(
+  handlerFunction: (event: Static<Schema>) => Promise<Output>,
+  options: HttpHandlerOptions<Schema>
 ) => {
-  const validator = options.eventSchema
-    ? Compile(options.eventSchema)
-    : undefined
+  const validator = Compile(options.eventSchema)
   const successStatusCode = options.successStatusCode ?? 200
 
   return async (
@@ -103,7 +102,7 @@ export const httpHandler = <Event = HttpEvent, Output = unknown>(
     try {
       const event = await buildEvent(request, context)
 
-      if (validator && !validator.Check(event)) {
+      if (!validator.Check(event)) {
         const details = validator.Errors(event).map((error) => ({
           path: error.instancePath,
           message: error.message,
@@ -115,7 +114,7 @@ export const httpHandler = <Event = HttpEvent, Output = unknown>(
         })
       }
 
-      const output = await handlerFunction(event as Event)
+      const output = await handlerFunction(event)
       if (successStatusCode === 204) return new Response(null, { status: 204 })
       return Response.json(output, { status: successStatusCode })
     } catch (error) {
