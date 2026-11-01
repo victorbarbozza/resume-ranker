@@ -1,5 +1,5 @@
 {
-  "id": "ff10e8f1-db02-4879-9a69-8e0106bd99d3",
+  "id": "ccb53eaf-12fb-430d-abc1-758ba44edcb0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -70,12 +70,6 @@
           "notNull": true,
           "default": "'pending'"
         },
-        "search_vector": {
-          "name": "search_vector",
-          "type": "tsvector",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -114,11 +108,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_candidates_search_vector": {
-          "name": "idx_candidates_search_vector",
+        "idx_candidates_areas": {
+          "name": "idx_candidates_areas",
           "columns": [
             {
-              "expression": "search_vector",
+              "expression": "areas",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

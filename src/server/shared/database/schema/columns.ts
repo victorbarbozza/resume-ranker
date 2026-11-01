@@ -6,11 +6,6 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core'
 
-/** Postgres tsvector column, which Drizzle has no built-in type for */
-export const tsvector = customType<{ data: string }>({
-  dataType: () => 'tsvector',
-})
-
 /** Postgres bytea column for binary files, read and written as Buffer */
 export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType: () => 'bytea',

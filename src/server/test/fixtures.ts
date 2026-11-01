@@ -47,7 +47,7 @@ export const profileWith = (
   summary,
 })
 
-/** A candidate whose profile is extracted, so it can enter a shortlist */
+/** A candidate whose profile is extracted, so a ranking can pick it up */
 export const createReadyCandidate = async (input: {
   skills?: string[]
   summary?: string

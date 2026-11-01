@@ -9,7 +9,6 @@ CREATE TABLE "candidates" (
 	"profile_prompt_version" varchar(32),
 	"areas" text[] DEFAULT '{}'::text[] NOT NULL,
 	"status" varchar(16) DEFAULT 'pending' NOT NULL,
-	"search_vector" "tsvector",
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone,
@@ -104,7 +103,7 @@ ALTER TABLE "evaluations" ADD CONSTRAINT "evaluations_candidate_id_candidates_id
 ALTER TABLE "resume_files" ADD CONSTRAINT "resume_files_candidate_id_candidates_id_fk" FOREIGN KEY ("candidate_id") REFERENCES "public"."candidates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "candidates_content_hash_key" ON "candidates" USING btree ("content_hash") WHERE "candidates"."deleted_at" is null;--> statement-breakpoint
-CREATE INDEX "idx_candidates_search_vector" ON "candidates" USING gin ("search_vector");--> statement-breakpoint
+CREATE INDEX "idx_candidates_areas" ON "candidates" USING gin ("areas");--> statement-breakpoint
 CREATE INDEX "idx_evaluations_candidate_id" ON "evaluations" USING btree ("candidate_id");--> statement-breakpoint
 CREATE INDEX "idx_sessions_user_id" ON "sessions" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "idx_tasks_queued_run_at" ON "tasks" USING btree ("run_at") WHERE "tasks"."status" = 'queued';

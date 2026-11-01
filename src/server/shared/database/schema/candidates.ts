@@ -27,7 +27,6 @@ import {
   oneOf,
   promptVersionColumn,
   subsetOf,
-  tsvector,
   updatedAt,
 } from './columns'
 
@@ -36,7 +35,7 @@ import {
  *
  * - `contentHash`: sha256 of the uploaded file, computed in the browser; unique among live candidates, so uploads are idempotent and a deleted candidate does not block a new upload
  * - `resumeText`: stored whole and read only by the LLM tasks; truncation only happens when a prompt is built
- * - `searchVector`: full-text document for the shortlist, built from the LLM profile only by src/server/shared/search; null until the profile exists
+ * - `areas`: one or two areas extracted by the LLM; a ranking reads the candidates of the job's area
  */
 export const candidates = pgTable(
   'candidates',
@@ -60,7 +59,6 @@ export const candidates = pgTable(
       .$type<CandidateStatus>()
       .notNull()
       .default('pending'),
-    searchVector: tsvector('search_vector'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),
@@ -69,7 +67,7 @@ export const candidates = pgTable(
     uniqueIndex('candidates_content_hash_key')
       .on(table.contentHash)
       .where(sql`${table.deletedAt} is null`),
-    index('idx_candidates_search_vector').using('gin', table.searchVector),
+    index('idx_candidates_areas').using('gin', table.areas),
     check('candidates_status_check', oneOf(table.status, CANDIDATE_STATUSES)),
     check('candidates_areas_check', subsetOf(table.areas, AREAS)),
   ]

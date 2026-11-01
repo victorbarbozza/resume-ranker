@@ -4,6 +4,7 @@ import type { ICandidateProfile } from '@/server/shared/schemas/candidate.schema
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import {
   createCandidate,
+  createReadyCandidate,
   generatedBy,
   randomHash,
 } from '@/server/test/fixtures'
@@ -106,5 +107,48 @@ describe('candidates repository', () => {
         areas: ['astrology' as Area],
       })
     ).rejects.toThrow()
+  })
+})
+
+describe('ready candidates by area', () => {
+  const ids = async (area: Area, limit = 20) =>
+    (await candidatesRepo.listReadyByArea(area, limit)).map((c) => c.id)
+
+  test('lists the ready candidates of the area, newest first', async () => {
+    const older = await createReadyCandidate({})
+    const newer = await createReadyCandidate({})
+    await createReadyCandidate({ areas: ['design'] })
+
+    expect(await ids('engineering')).toEqual([newer, older])
+  })
+
+  test('a candidate with two areas belongs to both', async () => {
+    const hybrid = await createReadyCandidate({
+      areas: ['data', 'engineering'],
+    })
+
+    expect(await ids('data')).toEqual([hybrid])
+    expect(await ids('engineering')).toEqual([hybrid])
+  })
+
+  test('leaves out pending, failed and deleted candidates', async () => {
+    const ready = await createReadyCandidate({})
+    await createCandidate()
+    const failed = await createReadyCandidate({})
+    await candidatesRepo.setStatus(failed, 'failed')
+    const deleted = await createReadyCandidate({})
+    await candidatesRepo.softDelete(deleted)
+
+    expect(await ids('engineering')).toEqual([ready])
+    expect(await candidatesRepo.countReadyByArea('engineering')).toBe(1)
+  })
+
+  test('stops at the limit and still counts every ready candidate', async () => {
+    await createReadyCandidate({})
+    await createReadyCandidate({})
+    await createReadyCandidate({})
+
+    expect(await ids('engineering', 2)).toHaveLength(2)
+    expect(await candidatesRepo.countReadyByArea('engineering')).toBe(3)
   })
 })
