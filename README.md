@@ -7,7 +7,7 @@ Rank candidates for a job opening. Register a job, upload resumes (TXT, PDF or D
 ## Stack
 
 - Next.js 16 (App Router) for the UI and the API
-- PostgreSQL 16 with Drizzle ORM: data, task queue and full-text search
+- PostgreSQL 16 with Drizzle ORM: data and task queue
 - TypeBox for request and LLM output schemas
 - TanStack Query on the client
 - Bun for packages, scripts and tests
