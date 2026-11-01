@@ -58,6 +58,13 @@ services:
     command: ['node', 'worker.mjs']
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
+      LLM_MODEL:
+      LLM_RPM:
+      AZURE_RESOURCE_NAME:
+      AZURE_API_KEY:
+      OLLAMA_BASE_URL:
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       postgres:
         condition: service_healthy
