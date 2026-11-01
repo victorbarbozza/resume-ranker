@@ -67,13 +67,14 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 6. Jobs API
 
-- [ ] `POST /api/jobs` (title, description, area) stores the job and queues `job.analyze` in one transaction
-- [ ] `GET /api/jobs` and `GET /api/jobs/:id`
-- [ ] `PATCH /api/jobs/:id` bumps `version` and queues a new analysis
-- [ ] `DELETE /api/jobs/:id` (soft delete)
-- [ ] A TypeBox schema for each task payload; handlers validate the payload before using it, so reading a task needs no cast
-- [ ] `job.analyze` handler: must-have and nice-to-have requirements
-- [ ] Integration tests
+- [x] `POST /api/jobs` (title, description, area) stores the job and queues `job.analyze` in one transaction
+- [x] `GET /api/jobs` and `GET /api/jobs/:id`
+- [x] `PATCH /api/jobs/:id` bumps `version` and queues a new analysis
+- [x] `DELETE /api/jobs/:id` (soft delete)
+- [x] `POST /api/jobs/:id/analyze` queues a failed analysis again; 409 while it is pending or done
+- [x] A TypeBox schema for each task payload; handlers validate the payload before using it, so reading a task needs no cast
+- [x] `job.analyze` handler: must-have and nice-to-have requirements; skips a deleted job or an older version without calling the LLM, and marks the job failed once the task is dead
+- [x] Integration tests
 
 ## 7. Resumes API
 
