@@ -25,13 +25,24 @@ bun install
 bun run dev       # starts Postgres in Docker, then http://localhost:3000
 ```
 
-`bun run dev` checks that Docker is running, starts Postgres and waits until it is healthy, then runs every app process with its name in front of each log line. The server logs that it reached the database and applied any pending migrations. Ctrl+C stops the app; Postgres keeps running until `bun run dev:down`. `curl http://localhost:3000/api/health` answers `{"status":"ok"}` while the database is up.
+`bun run dev` runs the deploy steps on your machine, in the order compose runs them on the server: check Docker, start Postgres and wait until it is healthy, apply pending migrations, start the web server and the worker with live reload, then wait for `/api/health`. Each step prints its name, each process prints its name in front of every log line, and a failed step stops the ones after it. Ctrl+C stops the app; Postgres keeps running until `bun run dev:down`.
 
-To run the production image instead of the dev server:
+To run the production image instead, the same way the server does:
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build --wait
 ```
+
+Both follow the same steps:
+
+| Step       | `bun run dev`                              | `docker compose up` (local and on the server)                |
+| ---------- | ------------------------------------------ | ------------------------------------------------------------ |
+| Database   | `docker compose up -d --wait postgres`     | `postgres` service, healthy                                  |
+| Migrations | `bun src/migrate.ts`                       | `migrate` service: `node migrate.mjs`, the same file bundled |
+| App        | `next dev` and `bun --watch src/worker.ts` | `app` (`node server.js`) and `worker` (`node worker.mjs`)    |
+| Health     | waits for `GET /api/health`                | `app` health check, which `--wait` waits for                 |
+
+The web server and the worker never change the schema: they start only after the migration step exits successfully.
 
 ## Configuration
 
@@ -47,17 +58,17 @@ Nothing needs to be configured to run locally: every variable has a default that
 
 ## Scripts
 
-| Script                                      | What it does                                                |
-| ------------------------------------------- | ----------------------------------------------------------- |
-| `bun run dev`                               | Checks Docker, starts Postgres, then runs the app processes |
-| `bun run build`                             | Production build (standalone output)                        |
-| `bun run lint`                              | ESLint                                                      |
-| `bun run typecheck`                         | Route types, then `tsc --noEmit`                            |
-| `bun run test`                              | Unit and integration tests (needs `bun run dev:up`)         |
-| `bun run format`                            | Prettier                                                    |
-| `bun run db:generate`                       | Generate a migration from the Drizzle schema                |
-| `bun run db:migrate`                        | Apply migrations                                            |
-| `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres                          |
+| Script                                      | What it does                                        |
+| ------------------------------------------- | --------------------------------------------------- |
+| `bun run dev`                               | Runs the deploy steps locally, with live reload     |
+| `bun run build`                             | Production build (standalone output)                |
+| `bun run lint`                              | ESLint                                              |
+| `bun run typecheck`                         | Route types, then `tsc --noEmit`                    |
+| `bun run test`                              | Unit and integration tests (needs `bun run dev:up`) |
+| `bun run format`                            | Prettier                                            |
+| `bun run db:generate`                       | Generate a migration from the Drizzle schema        |
+| `bun run db:migrate`                        | Apply pending migrations (the step before the app)  |
+| `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres                  |
 
 ## Project layout
 
@@ -71,7 +82,10 @@ src/
   server/
     config/       environment variables
     domains/      per domain: handlers (validation) and services (rules)
-    shared/       database, connectors, HTTP wrapper
+    shared/       database, queue, connectors, HTTP wrapper
+    tasks/        one handler per task type
+  migrate.ts      migration step, run before the app
+  worker.ts       entry of the queue worker
 ```
 
 A request flows route file → handler → service → repository or connector, and no layer is skipped. Client code may import types from `src/server`, never modules; ESLint enforces it. Code that both sides run, such as the list of areas, lives in `src/shared`.
