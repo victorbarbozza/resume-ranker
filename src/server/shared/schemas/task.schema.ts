@@ -1,3 +1,5 @@
+import { type Static, Type } from 'typebox'
+
 /** Every kind of work the worker does */
 export const TASK_TYPES = [
   'job.analyze',
@@ -34,23 +36,49 @@ export const TASK_STATUSES = ['queued', 'running', 'done', 'dead'] as const
 /** One of TASK_STATUSES */
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 
-/** The payload each task type carries; enqueue checks it at compile time */
+/** Payload of job.analyze: the job and the version to analyse */
+export const jobAnalyzePayloadSchema = Type.Object({
+  jobId: Type.String({ format: 'uuid' }),
+  version: Type.Integer({ minimum: 1 }),
+})
+
+/** Payload of candidate.extract_profile */
+export const candidateExtractProfilePayloadSchema = Type.Object({
+  candidateId: Type.String({ format: 'uuid' }),
+})
+
+/** Payload of candidates.evaluate: one batch for one job version */
+export const candidatesEvaluatePayloadSchema = Type.Object({
+  jobId: Type.String({ format: 'uuid' }),
+  jobVersion: Type.Integer({ minimum: 1 }),
+  candidateIds: Type.Array(Type.String({ format: 'uuid' }), { minItems: 1 }),
+})
+
+/** Payload of maintenance.cleanup, which needs none */
+export const maintenanceCleanupPayloadSchema = Type.Object({})
+
+/**
+ * The payload each task type carries. enqueue checks it at compile time, and
+ * each handler validates it against the schema before using it.
+ */
 export type TaskPayloads = {
-  'job.analyze': { jobId: string; version: number }
-  'candidate.extract_profile': { candidateId: string }
-  'candidates.evaluate': {
-    jobId: string
-    jobVersion: number
-    candidateIds: string[]
-  }
-  'maintenance.cleanup': Record<string, never>
+  'job.analyze': Static<typeof jobAnalyzePayloadSchema>
+  'candidate.extract_profile': Static<
+    typeof candidateExtractProfilePayloadSchema
+  >
+  'candidates.evaluate': Static<typeof candidatesEvaluatePayloadSchema>
+  'maintenance.cleanup': Static<typeof maintenanceCleanupPayloadSchema>
 }
 
-/** A task as the rest of the server sees it */
+/**
+ * A task as the rest of the server sees it.
+ *
+ * - `payload`: as the database holds it; the handler validates it
+ */
 export type ITask = {
   id: string
   type: TaskType
-  payload: TaskPayloads[TaskType]
+  payload: unknown
   status: TaskStatus
   attempts: number
   runAt: string

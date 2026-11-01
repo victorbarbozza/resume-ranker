@@ -15,7 +15,7 @@ type TaskRow = typeof tasksTable.$inferSelect
 const toTask = (row: TaskRow): ITask => ({
   id: row.id,
   type: row.type,
-  payload: row.payload as TaskPayloads[TaskType],
+  payload: row.payload,
   status: row.status,
   attempts: row.attempts,
   runAt: row.runAt.toISOString(),
