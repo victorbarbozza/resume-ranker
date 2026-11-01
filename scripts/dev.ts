@@ -8,9 +8,14 @@ const migrateProcess: DevProcess = {
   color: '\x1b[33m',
 }
 
-/** The app processes, with live reload in place of `node server.js` */
+/** The app processes, with live reload in place of `node server.js` and `node worker.mjs` */
 const appProcesses: DevProcess[] = [
   { name: 'web', command: ['bunx', 'next', 'dev'], color: '\x1b[36m' },
+  {
+    name: 'worker',
+    command: ['bun', '--watch', 'src/worker.ts'],
+    color: '\x1b[35m',
+  },
 ]
 
 /** Host port of the compose Postgres, as compose.yaml publishes it */
@@ -148,7 +153,7 @@ const main = async () => {
     fail('Migrations failed, so the app was not started.')
   }
 
-  step('Start web')
+  step('Start web and worker')
   const running = appProcesses.map(start)
 
   let stopping = false
