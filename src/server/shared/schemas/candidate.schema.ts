@@ -27,13 +27,27 @@ export const FILE_NAME_MAX_LENGTH = 255
 export const RESUME_FILE_MAX_BYTES = 5 * 1024 * 1024
 
 /** What the LLM extracts from a resume once; rankings read this, not the full text */
-export const candidateProfileSchema = Type.Object({
-  skills: Type.Array(Type.String()),
-  yearsOfExperience: Type.Number({ minimum: 0 }),
-  seniority: Type.Enum(SENIORITIES),
-  languages: Type.Array(Type.String()),
-  summary: Type.String(),
-})
+export const candidateProfileSchema = Type.Object(
+  {
+    skills: Type.Array(Type.String(), {
+      description:
+        'Technologies, tools and practices the resume shows, with canonical names such as PostgreSQL or Node.js',
+    }),
+    yearsOfExperience: Type.Number({
+      minimum: 0,
+      description: 'Total years of professional work',
+    }),
+    seniority: Type.Enum(SENIORITIES, { description: 'Career level' }),
+    languages: Type.Array(Type.String(), {
+      description: 'Spoken languages the resume mentions',
+    }),
+    summary: Type.String({
+      description:
+        'Concrete facts about the experience: domains, scale, projects and results',
+    }),
+  },
+  { additionalProperties: false }
+)
 
 /** A profile as the LLM extracts it */
 export type ICandidateProfile = Static<typeof candidateProfileSchema>
