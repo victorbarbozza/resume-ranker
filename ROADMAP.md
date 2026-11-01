@@ -19,17 +19,19 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] Dockerfile (standalone output, runs on Node) and `app` service in compose
 - [x] CI workflow: lint, typecheck, format, test, build
 - [x] README with local setup and naming rules
+- [x] `bun run dev` (`scripts/dev.ts`): checks Docker, waits for a healthy Postgres, runs every app process with prefixed logs
 
 ## 3. Database
 
-- [ ] Fixed area list (`engineering`, `data`, `design`, `product`, `marketing`, `sales`, `finance`, `people`, `operations`, `other`) as a shared constant
-- [ ] Tables: `jobs`, `candidates`, `resume_files`, `evaluations`, `tasks`, `users`, `sessions`, `rate_limits`
-- [ ] Generated `search_vector` on `candidates` (profile skills weight A, resume text weight D) with a GIN index
-- [ ] First migration with `bun run db:generate`
-- [ ] Migrations run on boot (`src/instrumentation.ts`) and ship in the image
-- [ ] One repository per table
-- [ ] Integration test setup: separate test database, migrations before the suite, Postgres service in CI
-- [ ] Repository integration tests
+- [x] Fixed area list (`engineering`, `data`, `design`, `product`, `marketing`, `sales`, `finance`, `people`, `operations`, `other`) as a shared constant
+- [x] Tables: `jobs`, `candidates`, `resume_files`, `evaluations`, `tasks`, `users`, `sessions`, `rate_limits`
+- [x] Ready candidates by area (GIN index on `areas`), newest first up to a limit, plus a count of every ready candidate in the area
+- [x] Every LLM output stores the model and prompt version that produced it
+- [x] First migration with `bun run db:generate`
+- [x] Migrations run on boot (`src/instrumentation.ts`) and ship in the image
+- [x] One repository per table
+- [x] Integration test setup: separate test database, migrations before the suite, Postgres service in CI
+- [x] Repository integration tests
 
 ## 4. Queue and worker
 
@@ -39,7 +41,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Lock recovery: `running` for more than 5 minutes goes back to `queued`
 - [ ] Processor registry: one processor per task type
 - [ ] Maintenance tick: delete old `rate_limits` windows and expired sessions
-- [ ] `src/worker.ts` entry, `bun run dev:worker`, bundled into the image
+- [ ] `src/worker.ts` entry, bundled into the image, and added to the process list in `scripts/dev.ts`
 - [ ] `worker` service in compose
 - [ ] Integration tests: claim, concurrent claims, retry, dead, lock recovery
 
@@ -52,6 +54,8 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Output validated with TypeBox; invalid output counts as a failed attempt
 - [ ] Provider 429 reschedules the task without spending an attempt
 - [ ] Pace: at least `60 s ÷ LLM_RPM` between calls
+- [ ] Prompts: one file per task type in `src/server/tasks/prompts/`, each with a `PROMPT_VERSION`; bump it on every change
+- [ ] Snapshot test of every built prompt, so a prompt change shows up in the pull request diff
 - [ ] Tests with a mocked `fetch`
 
 ## 6. Jobs API
@@ -75,11 +79,10 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 8. Ranking API
 
-- [ ] Shortlist query: same area, at least one must-have match, top N by `ts_rank_cd`
-- [ ] `POST /api/jobs/:id/evaluations` with `shortlist` or `selected` scope, split into batches of 5
+- [ ] `POST /api/jobs/:id/evaluations` with `area` scope (every ready candidate of the job's area, up to `RANKING_MAX_CANDIDATES`, 50 by default) or `selected` scope, split into batches of 5; the response says how many the limit left out
 - [ ] `candidates.evaluate` processor: fixed rubric, strengths with evidence, gaps
 - [ ] Prompt guardrails: resume text delimited as data, output validated against the schema
-- [ ] `GET /api/jobs/:id/evaluations` with progress counts and stale flags
+- [ ] `GET /api/jobs/:id/evaluations` with progress counts and stale flags (older job version or older prompt version)
 - [ ] Integration tests
 
 ## 9. Access control
@@ -101,7 +104,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Login page; `src/proxy.ts` sends signed-out page visits to `/login`
 - [ ] Jobs list, create form with an area picker, job page with status and requirements
 - [ ] Candidates page: browser extraction (TXT, `pdfjs-dist`, `mammoth`), sha256, multi-file upload with per-file status and Retry
-- [ ] Ranking on the job page: scope (shortlist or selected), progress, table with stale and other-area chips
+- [ ] Ranking on the job page: scope (whole area or selected), progress, table with stale and other-area chips
 - [ ] Polling while work is pending
 
 ## 11. Deploy (Azure)
@@ -121,4 +124,6 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## Improvements (after v1)
 
+- [ ] Re-extract profiles after the profile prompt changes: one LLM call per resume, started from the candidates page
+- [ ] Cheap pre-filter before the LLM once the base reaches thousands of resumes: embeddings (`pgvector`) or keywords pick the top candidates of the area, and only those are scored
 - [ ] Editable job requirements: `PATCH /api/jobs/:id/requirements`, `requirements_source` column so re-analysis never overwrites a person's edits, version bump, editable chips in the UI

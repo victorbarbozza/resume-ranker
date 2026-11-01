@@ -1,3 +1,4 @@
+/** Landing page of the app */
 export default function HomePage() {
   return (
     <main className="page">

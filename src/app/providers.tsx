@@ -6,12 +6,13 @@ import { Toaster } from 'sonner'
 
 import { createQueryClient } from '@/lib/query-client'
 
+/** Props of the app providers */
 interface ProvidersProps {
   children: ReactNode
 }
 
+/** React Query and toasts for the whole app, with one query client per browser tab */
 export function Providers({ children }: ProvidersProps) {
-  // one client per browser tab; useState keeps it across re-renders
   const [queryClient] = useState(createQueryClient)
 
   return (

@@ -18,17 +18,18 @@ export class ApiError extends Error {
   }
 }
 
+/** Error body the API sends: `{ error, message }` plus any extra fields */
 type ErrorBody = { error?: string; message?: string } & Record<string, unknown>
 
 /**
  * Runs a fetch and returns its JSON body, or throws `ApiError` with the
- * `{ error, message }` the server sent.
+ * `{ error, message }` the server sent. A 204 or an empty body comes back as
+ * an empty object.
  */
 export const fetchJson = async <T>(
   doFetch: () => Promise<Response>
 ): Promise<T> => {
   const response = await doFetch()
-  // 204 and empty bodies come back as an empty object
   const body: unknown = await response.json().catch(() => ({}))
 
   if (!response.ok) {

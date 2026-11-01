@@ -13,15 +13,21 @@ export type HttpEvent = {
 /** Second argument Next.js passes to a route handler */
 type RouteContext = { params: Promise<Record<string, string | string[]>> }
 
+/**
+ * Options of httpHandler.
+ *
+ * - `eventSchema`: validates the whole event before the handler runs; a mismatch answers 400
+ * - `successStatusCode`: status of a successful response; 204 sends no body
+ */
 export type HttpHandlerOptions = {
-  /** Validates the whole event before the handler runs; a mismatch answers 400 */
   eventSchema?: TSchema
-  /** Status of a successful response; 204 sends no body */
   successStatusCode?: number
 }
 
+/** Methods whose requests carry no body */
 const methodsWithoutBody = new Set(['GET', 'HEAD'])
 
+/** Parses the JSON body; an empty body is undefined and malformed JSON answers 400 */
 const parseBody = async (request: Request): Promise<unknown> => {
   const text = await request.text()
   if (!text) return undefined
@@ -35,6 +41,7 @@ const parseBody = async (request: Request): Promise<unknown> => {
   }
 }
 
+/** Gathers the body, path and query parameters into one event */
 const buildEvent = async (
   request: Request,
   context?: RouteContext
@@ -55,6 +62,7 @@ const buildEvent = async (
   return event
 }
 
+/** Exposed errors answer with their message; any other error is logged and answers only its code */
 const errorResponse = (error: unknown): Response => {
   if (error instanceof HTTPError && error.expose) {
     return Response.json(
@@ -63,7 +71,6 @@ const errorResponse = (error: unknown): Response => {
     )
   }
 
-  // internals never reach the client: it only gets the code
   console.error('[http] request failed', error)
   const statusCode = error instanceof HTTPError ? error.statusCode : 500
   const code = error instanceof HTTPError ? error.code : 'ERR_INTERNAL'
