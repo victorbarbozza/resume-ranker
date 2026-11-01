@@ -17,6 +17,16 @@ services:
       timeout: 3s
       retries: 10
 
+  migrate:
+    build: .
+    image: ${APP_IMAGE:-resume-ranker:local}
+    command: ['node', 'migrate.mjs']
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   app:
     build: .
     image: ${APP_IMAGE:-resume-ranker:local}
@@ -27,6 +37,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [

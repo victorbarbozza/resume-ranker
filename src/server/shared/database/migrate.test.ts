@@ -35,4 +35,10 @@ describe('runMigrations', () => {
       total: journal.entries.length,
     })
   })
+
+  test('concurrent runs wait for each other instead of colliding', async () => {
+    const reports = await Promise.all([runMigrations(), runMigrations()])
+
+    expect(reports.map((report) => report.applied)).toEqual([0, 0])
+  })
 })
