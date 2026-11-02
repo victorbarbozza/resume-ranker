@@ -48,6 +48,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] `src/worker.ts` entry, bundled into the image, and added to the process list in `scripts/dev.ts`
 - [x] `worker` service in compose
 - [x] Integration tests: claim, concurrent claims, retry, dead, lock recovery
+- [x] A task claimed past its last attempt is dead without running, so a task that kills the worker stops after its attempts
 
 ## 5. LLM connector
 
@@ -79,11 +80,12 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 ## 7. Resumes API
 
 - [x] `POST /api/candidates`: multipart upload of up to 20 files of 2 MB; answers 202 as soon as every file is stored, with what happened to each (accepted, duplicate, rejected)
-- [x] The server computes the sha256 and reads the type from the first bytes (PDF, DOCX, plain text); an empty file, one over 2 MB or one of another kind is rejected on its own
+- [x] The server computes the sha256 and reads the type from the bytes with `file-type` (PDF or DOCX); an empty file, one over 2 MB or one of another kind is rejected on its own
 - [x] A file already in the base is a duplicate, in the same upload or a later one; two uploads of one file at once still create one candidate
-- [x] File storage behind one connector (`unstorage`): `fs` by default, Azure Blob or S3 by `STORAGE_DRIVER`; the database keeps only the key, the type and the size
+- [x] File storage behind one connector (`unstorage`): `fs` by default, Azure Blob with `STORAGE_DRIVER=azure`; the database keeps only the key, the type and the size
 - [x] Candidate, file record and task in one transaction, after the file is stored
-- [x] Request bodies over the limit are refused from Content-Length before they are read
+- [x] Request bodies over the limit are refused from Content-Length before they are read; every route has a 1 MB limit unless it sets its own, and multipart parsing is linear
+- [x] Worker heap capped at 384 MB and extracted text cut at 100 000 characters, so a file built to expand when unzipped fails instead of starving the VM
 - [x] `GET /api/candidates` with each status
 - [x] `POST /api/candidates/:id/retry` (409 while the profile is pending or done) and `DELETE /api/candidates/:id` (soft delete)
 - [x] `candidate.extract_profile` handler: the worker reads the text of the file (`unpdf`, `mammoth`), saves it, then extracts areas, skills, years, seniority, languages and summary; a retry reuses the saved text
@@ -118,7 +120,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Design tokens and base components (button, field, chip, table)
 - [ ] Login page; `src/proxy.ts` sends signed-out page visits to `/login`
 - [ ] Jobs list, create form with an area picker, job page with status and requirements
-- [ ] Candidates page: browser extraction (TXT, `pdfjs-dist`, `mammoth`), sha256, multi-file upload with per-file status and Retry
+- [ ] Candidates page: multi-file upload of PDF and DOCX, sent in requests of up to 20 files, with per-file status and Retry
 - [ ] Ranking on the job page: scope (whole area or selected), progress, table with stale and other-area chips
 - [ ] Polling while work is pending
 
@@ -126,11 +128,11 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 - [ ] Budget alert on the subscription
 - [ ] Production compose: Caddy with an sslip.io hostname, app port not published
-- [ ] Pulumi project: resource group, network, NSG for 22/80/443, static IP, B1s VM
+- [ ] Pulumi project: resource group, network, NSG for 22/80/443, static IP, B1s VM, storage account with a private container for resumes
 - [ ] cloud-init: Docker, 2 GB swap, firewall
 - [ ] `infra.yml`: `pulumi preview` on PRs, `pulumi up` on main, OIDC login
 - [ ] `deploy.yml`: build amd64 and arm64 images, push to GHCR, `compose pull && up -d --wait` over ssh (Postgres, migrations, app and worker, health check: the steps of `bun run dev`)
-- [ ] GitHub secrets: LLM API key, database password, ssh key
+- [ ] GitHub secrets: LLM API key, storage account key, database password, ssh key; the deploy sets `STORAGE_DRIVER=azure`
 
 ## 12. Backups
 
