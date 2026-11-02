@@ -18,9 +18,9 @@ const migrateProcess: DevProcess = {
 }
 
 /**
- * The app processes, with live reload in place of the image's `node server.mjs`
- * and `node worker.mjs`: the API on port 3001, and Vite on 3000, which serves
- * the screen and sends /api to the API.
+ * The app processes, with live reload in place of the image's `node server.mjs`:
+ * the API, which also works the task queue, on port 3001, and Vite on 3000,
+ * which serves the screen and sends /api to the API.
  */
 const appProcesses: DevProcess[] = [
   {
@@ -30,11 +30,6 @@ const appProcesses: DevProcess[] = [
     env: { PORT: '3001' },
   },
   { name: 'web', command: ['bunx', 'vite'], color: '\x1b[36m' },
-  {
-    name: 'worker',
-    command: ['bun', '--watch', 'src/worker.ts'],
-    color: '\x1b[35m',
-  },
 ]
 
 /** Host port of the compose Postgres, as compose.yaml publishes it */
@@ -172,7 +167,7 @@ const main = async () => {
     fail('Migrations failed, so the app was not started.')
   }
 
-  step('Start api, web and worker')
+  step('Start api and web')
   const running = appProcesses.map(start)
 
   let stopping = false
