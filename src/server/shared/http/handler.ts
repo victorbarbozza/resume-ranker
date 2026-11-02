@@ -19,7 +19,7 @@ type RouteContext = { params: Promise<Record<string, string | string[]>> }
  *
  * - `eventSchema`: validates the whole event before the handler runs, and gives the handler its event type; a mismatch answers 400. A route without input passes `Type.Object({})`
  * - `successStatusCode`: status of a successful response; 204 sends no body
- * - `maxBodyBytes`: largest body accepted, checked against Content-Length before the body is read; over it answers 413, and a request without Content-Length answers 411
+ * - `maxBodyBytes`: largest body accepted, 1 MB by default; checked against Content-Length before the body is read, so over it answers 413, and a chunked body, which has no Content-Length, answers 411
  */
 export type HttpHandlerOptions<Schema extends TSchema> = {
   eventSchema: Schema
@@ -30,10 +30,17 @@ export type HttpHandlerOptions<Schema extends TSchema> = {
 /** Methods whose requests carry no body */
 const methodsWithoutBody = new Set(['GET', 'HEAD'])
 
-/** Refuses a body over the limit from its Content-Length, before reading it */
+/** Largest body of a route that sets no maxBodyBytes: plenty for any JSON this API takes */
+const DEFAULT_MAX_BODY_BYTES = 1024 * 1024
+
+/**
+ * Refuses a body over the limit from its Content-Length, before reading it. A
+ * request with neither Content-Length nor Transfer-Encoding has no body.
+ */
 const checkBodySize = (request: Request, maxBytes: number) => {
   const length = request.headers.get('content-length')
   if (length === null) {
+    if (!request.headers.has('transfer-encoding')) return
     throw new HTTPError('the request must state its size in Content-Length', {
       statusCode: 411,
       code: 'LENGTH_REQUIRED',
@@ -61,7 +68,7 @@ const parseMultipart = async (
     })
   }
 
-  const body: Record<string, (string | UploadedFile)[]> = {}
+  const fields = new Map<string, (string | UploadedFile)[]>()
   for (const [field, value] of form) {
     const item =
       typeof value === 'string'
@@ -71,9 +78,11 @@ const parseMultipart = async (
             type: value.type,
             bytes: new Uint8Array(await value.arrayBuffer()),
           }
-    body[field] = [...(body[field] ?? []), item]
+    const list = fields.get(field) ?? []
+    list.push(item)
+    fields.set(field, list)
   }
-  return body
+  return Object.fromEntries(fields)
 }
 
 /** Parses the JSON body; an empty body is undefined and malformed JSON answers 400 */
@@ -154,8 +163,8 @@ export const httpHandler = <Schema extends TSchema, Output>(
     context?: RouteContext
   ): Promise<Response> => {
     try {
-      if (options.maxBodyBytes !== undefined) {
-        checkBodySize(request, options.maxBodyBytes)
+      if (!methodsWithoutBody.has(request.method)) {
+        checkBodySize(request, options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES)
       }
       const event = await buildEvent(request, context)
 

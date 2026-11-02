@@ -174,7 +174,7 @@ describe('httpHandler with multipart', () => {
     expect((await response.json()).error).toBe('VALIDATION_ERROR')
   })
 
-  test('refuses a body over the limit before reading it, and one without a size', async () => {
+  test('refuses a body over the limit before reading it, and a chunked one', async () => {
     const handler = httpHandler(async () => ({}), {
       eventSchema: Type.Object({}),
       maxBodyBytes: 1024,
@@ -184,7 +184,11 @@ describe('httpHandler with multipart', () => {
       body: 'x'.repeat(2048),
       headers: { 'Content-Length': '2048' },
     })
-    const unsized = new Request(url, { method: 'POST', body: 'x' })
+    const unsized = new Request(url, {
+      method: 'POST',
+      body: 'x',
+      headers: { 'Transfer-Encoding': 'chunked' },
+    })
 
     const tooLarge = await handler(large)
     const noLength = await handler(unsized)
@@ -192,5 +196,42 @@ describe('httpHandler with multipart', () => {
     expect(tooLarge.status).toBe(413)
     expect((await tooLarge.json()).error).toBe('PAYLOAD_TOO_LARGE')
     expect(noLength.status).toBe(411)
+  })
+})
+
+describe('httpHandler limits', () => {
+  test('a route without maxBodyBytes still refuses a body over 1 MB', async () => {
+    const handler = httpHandler(async () => ({}), {
+      eventSchema: Type.Object({}),
+    })
+
+    const response = await handler(
+      new Request(url, {
+        method: 'POST',
+        body: '{}',
+        headers: { 'Content-Length': String(2 * 1024 * 1024) },
+      })
+    )
+
+    expect(response.status).toBe(413)
+  })
+
+  test('a multipart field named __proto__ is just a field', async () => {
+    const form = new FormData()
+    form.append('__proto__', 'value')
+    form.append('constructor', 'value')
+    const handler = httpHandler(async (event) => event.body, {
+      eventSchema: Type.Object({ body: Type.Unknown() }),
+    })
+
+    const response = await handler(
+      new Request(url, { method: 'POST', body: form })
+    )
+
+    expect(response.status).toBe(200)
+    expect(Object.keys(await response.json())).toEqual([
+      '__proto__',
+      'constructor',
+    ])
   })
 })
