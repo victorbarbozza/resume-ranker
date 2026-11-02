@@ -17,12 +17,14 @@ FROM base AS runtime
 ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
-    MIGRATIONS_FOLDER=/app/migrations
+    MIGRATIONS_FOLDER=/app/migrations \
+    STORAGE_DIR=/app/data/files
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/src/server/shared/database/migrations ./migrations
 COPY --from=build --chown=node:node /app/dist/worker.mjs ./worker.mjs
 COPY --from=build --chown=node:node /app/dist/migrate.mjs ./migrate.mjs
+RUN mkdir -p /app/data && chown node:node /app/data
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]

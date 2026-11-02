@@ -72,19 +72,23 @@ const readyInArea = (area: Area) =>
 export type CreateCandidateInput = {
   fileName: string
   contentHash: string
-  resumeText: string
 }
 
-/** Inserts a pending candidate; pass the upload transaction */
+/**
+ * Inserts a pending candidate; pass the upload transaction. Returns undefined
+ * when a live candidate already has the same file, which two uploads of one
+ * file at the same time can cause.
+ */
 export const create = async (
   input: CreateCandidateInput,
   executor: Executor = db
-): Promise<ICandidate> => {
+): Promise<ICandidate | undefined> => {
   const [row] = await executor
     .insert(candidatesTable)
     .values(input)
+    .onConflictDoNothing()
     .returning(candidateColumns)
-  return toCandidate(row)
+  return row ? toCandidate(row) : undefined
 }
 
 /** A live candidate by id */
@@ -111,16 +115,32 @@ export const findByContentHash = async (
   return row ? toCandidate(row) : undefined
 }
 
-/** The full resume text, read only by the LLM tasks */
+/**
+ * The full resume text, read only by the LLM tasks: null until the worker
+ * extracts it from the file, undefined when the candidate is not live.
+ */
 export const findResumeText = async (
   id: string,
   executor: Executor = db
-): Promise<string | undefined> => {
+): Promise<string | null | undefined> => {
   const [row] = await executor
     .select({ resumeText: candidatesTable.resumeText })
     .from(candidatesTable)
     .where(and(eq(candidatesTable.id, id), isLive))
   return row?.resumeText
+}
+
+/** Stores the text the worker extracted from the file */
+export const saveResumeText = async (
+  id: string,
+  resumeText: string
+): Promise<boolean> => {
+  const rows = await db
+    .update(candidatesTable)
+    .set({ resumeText })
+    .where(and(eq(candidatesTable.id, id), isLive))
+    .returning({ id: candidatesTable.id })
+  return rows.length > 0
 }
 
 /** Every live candidate, newest first */
@@ -194,6 +214,28 @@ export const setStatus = async (
     .where(and(eq(candidatesTable.id, id), isLive))
     .returning({ id: candidatesTable.id })
   return rows.length > 0
+}
+
+/**
+ * Sends a failed profile back to pending, for another try. Returns undefined
+ * when the candidate is gone or its profile did not fail.
+ */
+export const reopenFailedProfile = async (
+  id: string,
+  executor: Executor = db
+): Promise<ICandidate | undefined> => {
+  const [row] = await executor
+    .update(candidatesTable)
+    .set({ status: 'pending' })
+    .where(
+      and(
+        eq(candidatesTable.id, id),
+        isLive,
+        eq(candidatesTable.status, 'failed')
+      )
+    )
+    .returning(candidateColumns)
+  return row ? toCandidate(row) : undefined
 }
 
 /** Hides a candidate from every read; the row and its file stay */

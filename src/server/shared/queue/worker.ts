@@ -24,8 +24,11 @@ const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
 
 /**
  * Runs one claimed task and records how it ended: done, retried after a
- * backoff, postponed without spending an attempt, or dead. A recurring task
- * then schedules its next run, which does nothing while a run is pending.
+ * backoff, postponed without spending an attempt, or dead. A task claimed
+ * past its last attempt is dead without running: the worker stopped during
+ * every attempt, as a file that exhausts its memory would make it, and lock
+ * recovery would otherwise hand it out forever. A recurring task then
+ * schedules its next run, which does nothing while a run is pending.
  */
 export const runTask = async (
   task: ITask,
@@ -40,26 +43,38 @@ export const runTask = async (
     return
   }
 
-  try {
-    await handler.run(task)
-    await tasksRepo.markDone(task)
-    console.info(`✓ ${task.type} ${task.id} done`)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+  if (task.attempts > config.maxAttempts) {
+    const reason = 'the worker stopped during every attempt'
+    if (await tasksRepo.markDead(task, reason)) {
+      await handler.onDead?.(task, reason)
+    }
+    console.error(`✗ ${task.type} ${task.id} dead: ${reason}`)
+  } else {
+    try {
+      await handler.run(task)
+      await tasksRepo.markDone(task)
+      console.info(`✓ ${task.type} ${task.id} done`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
 
-    if (error instanceof RetryLaterError) {
-      await tasksRepo.postpone(task, message, error.delayMs)
-      console.info(`${task.type} ${task.id} postponed: ${message}`)
-    } else if (task.attempts < config.maxAttempts) {
-      await tasksRepo.scheduleRetry(task, message, retryDelayMs(task.attempts))
-      console.error(
-        `✗ ${task.type} ${task.id} failed, attempt ${task.attempts} of ${config.maxAttempts}: ${message}`
-      )
-    } else {
-      if (await tasksRepo.markDead(task, message)) {
-        await handler.onDead?.(task, message)
+      if (error instanceof RetryLaterError) {
+        await tasksRepo.postpone(task, message, error.delayMs)
+        console.info(`${task.type} ${task.id} postponed: ${message}`)
+      } else if (task.attempts < config.maxAttempts) {
+        await tasksRepo.scheduleRetry(
+          task,
+          message,
+          retryDelayMs(task.attempts)
+        )
+        console.error(
+          `✗ ${task.type} ${task.id} failed, attempt ${task.attempts} of ${config.maxAttempts}: ${message}`
+        )
+      } else {
+        if (await tasksRepo.markDead(task, message)) {
+          await handler.onDead?.(task, message)
+        }
+        console.error(`✗ ${task.type} ${task.id} dead: ${message}`)
       }
-      console.error(`✗ ${task.type} ${task.id} dead: ${message}`)
     }
   }
 

@@ -3,6 +3,7 @@ import { Type } from 'typebox'
 
 import { httpHandler } from './handler'
 import { HTTPError } from './http-error'
+import { uploadedFileSchema } from './uploaded-file'
 
 const url = 'http://localhost/api/test'
 
@@ -121,5 +122,116 @@ describe('httpHandler', () => {
 
     expect(response.status).toBe(204)
     expect(await response.text()).toBe('')
+  })
+})
+
+describe('httpHandler with multipart', () => {
+  const uploadSchema = Type.Object({
+    body: Type.Object({
+      files: Type.Array(uploadedFileSchema),
+      note: Type.Array(Type.String()),
+    }),
+  })
+
+  const upload = (form: FormData) =>
+    new Request(url, { method: 'POST', body: form })
+
+  test('reads every field as a list, and every file with its bytes', async () => {
+    const form = new FormData()
+    form.append(
+      'files',
+      new File(['first resume'], 'a.txt', { type: 'text/plain' })
+    )
+    form.append('files', new File(['second'], 'b.txt', { type: 'text/plain' }))
+    form.append('note', 'batch one')
+    const handler = httpHandler(
+      async (event) => ({
+        names: event.body.files.map((file) => file.name),
+        sizes: event.body.files.map((file) => file.bytes.byteLength),
+        note: event.body.note,
+      }),
+      { eventSchema: uploadSchema }
+    )
+
+    const response = await handler(upload(form))
+
+    expect(await response.json()).toEqual({
+      names: ['a.txt', 'b.txt'],
+      sizes: [12, 6],
+      note: ['batch one'],
+    })
+  })
+
+  test('answers 400 when a field that should be a file is text', async () => {
+    const form = new FormData()
+    form.append('files', 'not a file')
+    form.append('note', 'batch one')
+    const handler = httpHandler(async () => ({}), { eventSchema: uploadSchema })
+
+    const response = await handler(upload(form))
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).error).toBe('VALIDATION_ERROR')
+  })
+
+  test('refuses a body over the limit before reading it, and a chunked one', async () => {
+    const handler = httpHandler(async () => ({}), {
+      eventSchema: Type.Object({}),
+      maxBodyBytes: 1024,
+    })
+    const large = new Request(url, {
+      method: 'POST',
+      body: 'x'.repeat(2048),
+      headers: { 'Content-Length': '2048' },
+    })
+    const unsized = new Request(url, {
+      method: 'POST',
+      body: 'x',
+      headers: { 'Transfer-Encoding': 'chunked' },
+    })
+
+    const tooLarge = await handler(large)
+    const noLength = await handler(unsized)
+
+    expect(tooLarge.status).toBe(413)
+    expect((await tooLarge.json()).error).toBe('PAYLOAD_TOO_LARGE')
+    expect(noLength.status).toBe(411)
+  })
+})
+
+describe('httpHandler limits', () => {
+  test('a route without maxBodyBytes still refuses a body over 1 MB', async () => {
+    const handler = httpHandler(async () => ({}), {
+      eventSchema: Type.Object({}),
+    })
+
+    const response = await handler(
+      new Request(url, {
+        method: 'POST',
+        body: '{}',
+        headers: { 'Content-Length': String(2 * 1024 * 1024) },
+      })
+    )
+
+    expect(response.status).toBe(413)
+  })
+
+  test('a multipart field named __proto__ is just a field', async () => {
+    const form = new FormData()
+    form.append('__proto__', 'value')
+    form.append('constructor', 'value')
+    const handler = httpHandler(async (event) => event.body, {
+      eventSchema: Type.Object({ body: Type.Unknown() }),
+    })
+
+    const response = await handler(
+      new Request(url, { method: 'POST', body: form })
+    )
+
+    expect(response.status).toBe(200)
+    expect(Object.keys(await response.json())).toEqual([
+      '__proto__',
+      'constructor',
+    ])
   })
 })

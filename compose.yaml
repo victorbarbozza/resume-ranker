@@ -32,6 +32,12 @@ services:
     image: ${APP_IMAGE:-resume-ranker:local}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
+      STORAGE_DRIVER:
+      AZURE_STORAGE_ACCOUNT:
+      AZURE_STORAGE_KEY:
+      AZURE_STORAGE_CONTAINER:
+    volumes:
+      - resume-files:/app/data
     ports:
       - '127.0.0.1:${APP_PORT:-3000}:3000'
     depends_on:
@@ -55,7 +61,7 @@ services:
   worker:
     build: .
     image: ${APP_IMAGE:-resume-ranker:local}
-    command: ['node', 'worker.mjs']
+    command: ['node', '--max-old-space-size=384', 'worker.mjs']
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
       LLM_MODEL:
@@ -63,6 +69,12 @@ services:
       AZURE_RESOURCE_NAME:
       AZURE_API_KEY:
       OLLAMA_BASE_URL:
+      STORAGE_DRIVER:
+      AZURE_STORAGE_ACCOUNT:
+      AZURE_STORAGE_KEY:
+      AZURE_STORAGE_CONTAINER:
+    volumes:
+      - resume-files:/app/data
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     depends_on:
@@ -74,3 +86,4 @@ services:
 
 volumes:
   postgres-data:
+  resume-files:

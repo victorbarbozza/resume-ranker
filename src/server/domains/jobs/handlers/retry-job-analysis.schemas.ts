@@ -1,6 +1,6 @@
 import { Type } from 'typebox'
 
-/** POST /api/jobs/:id/analyze */
+/** POST /api/jobs/:id/retry */
 export const retryJobAnalysisEventSchema = Type.Object({
   pathParameters: Type.Object({ id: Type.String({ format: 'uuid' }) }),
 })

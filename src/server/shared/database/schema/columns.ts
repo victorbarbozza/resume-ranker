@@ -1,15 +1,5 @@
 import { type SQL, sql } from 'drizzle-orm'
-import {
-  type AnyPgColumn,
-  customType,
-  timestamp,
-  varchar,
-} from 'drizzle-orm/pg-core'
-
-/** Postgres bytea column for binary files, read and written as Buffer */
-export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType: () => 'bytea',
-})
+import { type AnyPgColumn, timestamp, varchar } from 'drizzle-orm/pg-core'
 
 /** Creation time, set by the database */
 export const createdAt = () =>

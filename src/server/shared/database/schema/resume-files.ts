@@ -4,16 +4,19 @@ import { check, integer, pgTable, uuid, varchar } from 'drizzle-orm/pg-core'
 import { RESUME_FILE_MAX_BYTES } from '@/server/shared/schemas/candidate.schema'
 
 import { candidates } from './candidates'
-import { bytea, createdAt } from './columns'
+import { createdAt } from './columns'
 
-/** The original upload, kept apart from candidates so list queries never load it */
+/**
+ * Where the original upload lives. The bytes are in the file storage, under
+ * a key made from their sha256; the database keeps only the key.
+ */
 export const resumeFiles = pgTable(
   'resume_files',
   {
     candidateId: uuid('candidate_id')
       .primaryKey()
       .references(() => candidates.id, { onDelete: 'cascade' }),
-    content: bytea('content').notNull(),
+    storageKey: varchar('storage_key', { length: 100 }).notNull(),
     mimeType: varchar('mime_type', { length: 100 }).notNull(),
     sizeBytes: integer('size_bytes').notNull(),
     createdAt: createdAt(),

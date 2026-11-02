@@ -1,6 +1,6 @@
 # Resume Ranker
 
-Rank candidates for a job opening. Register a job, upload resumes (TXT, PDF or DOCX) and get every candidate from the job's area ranked with a score, strengths and gaps.
+Rank candidates for a job opening. Register a job, upload resumes (PDF or DOCX) and get every candidate from the job's area ranked with a score, strengths and gaps.
 
 > Work in progress. [ROADMAP.md](ROADMAP.md) lists what is done and what comes next.
 
@@ -49,17 +49,20 @@ The web server and the worker never change the schema: they start only after the
 
 Nothing needs to be configured to run locally: every variable has a default that matches `compose.yaml`. Set a variable in the shell to change it, for example `APP_PORT=3001 docker compose up -d`.
 
-| Variable                                | Default                                                 | Used by                                                                          |
-| --------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `DATABASE_URL`                          | `postgres://dev:dev@localhost:55433/resume_ranker`      | app                                                                              |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD`   | `dev` / `dev`                                           | compose (Postgres and the app)                                                   |
-| `POSTGRES_PORT`                         | `55433`                                                 | compose: host port of Postgres                                                   |
-| `APP_PORT`                              | `3000`                                                  | compose: host port of the app                                                    |
-| `TEST_DATABASE_URL`                     | `postgres://dev:dev@localhost:55433/resume_ranker_test` | tests (must end in `_test`)                                                      |
-| `LLM_MODEL`                             | `fake`                                                  | worker: `<provider>:<model>`, such as `azure:my-deployment` or `ollama:llama3.2` |
-| `LLM_RPM`                               | `10` for azure, `30` for ollama                         | worker: LLM calls per minute                                                     |
-| `AZURE_RESOURCE_NAME` / `AZURE_API_KEY` | none                                                    | worker, with an `azure:` model                                                   |
-| `OLLAMA_BASE_URL`                       | `http://localhost:11434/v1`                             | worker, with an `ollama:` model                                                  |
+| Variable                                                                  | Default                                                 | Used by                                                                          |
+| ------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                            | `postgres://dev:dev@localhost:55433/resume_ranker`      | app                                                                              |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD`                                     | `dev` / `dev`                                           | compose (Postgres and the app)                                                   |
+| `POSTGRES_PORT`                                                           | `55433`                                                 | compose: host port of Postgres                                                   |
+| `APP_PORT`                                                                | `3000`                                                  | compose: host port of the app                                                    |
+| `TEST_DATABASE_URL`                                                       | `postgres://dev:dev@localhost:55433/resume_ranker_test` | tests (must end in `_test`)                                                      |
+| `LLM_MODEL`                                                               | `fake`                                                  | worker: `<provider>:<model>`, such as `azure:my-deployment` or `ollama:llama3.2` |
+| `LLM_RPM`                                                                 | `10` for azure, `30` for ollama                         | worker: LLM calls per minute                                                     |
+| `AZURE_RESOURCE_NAME` / `AZURE_API_KEY`                                   | none                                                    | worker, with an `azure:` model                                                   |
+| `OLLAMA_BASE_URL`                                                         | `http://localhost:11434/v1`                             | worker, with an `ollama:` model                                                  |
+| `STORAGE_DRIVER`                                                          | `fs`                                                    | app and worker: where uploaded files live, `fs` or `azure`                       |
+| `STORAGE_DIR`                                                             | `data/files` (`/app/data/files` in the image)           | app and worker, with `fs`                                                        |
+| `AZURE_STORAGE_ACCOUNT` / `AZURE_STORAGE_KEY` / `AZURE_STORAGE_CONTAINER` | none                                                    | app and worker, with `azure`                                                     |
 
 ### Using a real LLM
 
@@ -73,6 +76,10 @@ bun run dev
 `LLM_MODEL=ollama:llama3.2` runs a local model instead. The worker checks the variables when it starts and refuses to start, naming what is missing. Compose passes the same variables to the worker container; from there, an Ollama running on the host is `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1`. Tests always use `fake`.
 
 Each provider is one entry in `src/server/shared/connectors/llm/config.ts`: the package that talks to it, the variables it needs and its default pace. Adding a provider is a package and an entry; no task changes.
+
+### Uploaded files
+
+Resumes are stored by the server, under a key made from their sha256, through one connector (`src/server/shared/connectors/storage`): a folder by default (a volume in compose), or Azure Blob with `STORAGE_DRIVER=azure`, which the deploy uses so files never live on the VM disk. Adding a place is an entry in that connector's map. The database keeps only the key, the type and the size. The worker reads each file back to extract its text, so a PDF is never parsed by the web server.
 
 ## Scripts
 
