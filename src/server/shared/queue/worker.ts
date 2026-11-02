@@ -4,6 +4,7 @@ import {
   POLL_INTERVAL_MS,
   retryDelayMs,
 } from '@/server/shared/queue/config'
+import { FailNowError } from '@/server/shared/queue/fail-now-error'
 import { RetryLaterError } from '@/server/shared/queue/retry-later-error'
 import type { TaskHandlers } from '@/server/shared/queue/task-handler'
 import {
@@ -24,7 +25,8 @@ const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
 
 /**
  * Runs one claimed task and records how it ended: done, retried after a
- * backoff, postponed without spending an attempt, or dead. A task claimed
+ * backoff, postponed without spending an attempt, or dead, at once when it
+ * throws FailNowError or after its last attempt. A task claimed
  * past its last attempt is dead without running: the worker stopped during
  * every attempt, as a file that exhausts its memory would make it, and lock
  * recovery would otherwise hand it out forever. A recurring task then
@@ -60,7 +62,15 @@ export const runTask = async (
       if (error instanceof RetryLaterError) {
         await tasksRepo.postpone(task, message, error.delayMs)
         console.info(`${task.type} ${task.id} postponed: ${message}`)
-      } else if (task.attempts < config.maxAttempts) {
+      } else if (
+        error instanceof FailNowError ||
+        task.attempts >= config.maxAttempts
+      ) {
+        if (await tasksRepo.markDead(task, message)) {
+          await handler.onDead?.(task, message)
+        }
+        console.error(`✗ ${task.type} ${task.id} dead: ${message}`)
+      } else {
         await tasksRepo.scheduleRetry(
           task,
           message,
@@ -69,11 +79,6 @@ export const runTask = async (
         console.error(
           `✗ ${task.type} ${task.id} failed, attempt ${task.attempts} of ${config.maxAttempts}: ${message}`
         )
-      } else {
-        if (await tasksRepo.markDead(task, message)) {
-          await handler.onDead?.(task, message)
-        }
-        console.error(`✗ ${task.type} ${task.id} dead: ${message}`)
       }
     }
   }

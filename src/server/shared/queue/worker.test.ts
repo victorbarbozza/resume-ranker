@@ -17,6 +17,7 @@ import { rateLimits, tasks } from '@/server/shared/database/schema'
 import { runMaintenance } from '@/server/tasks/maintenance'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 
+import { FailNowError } from './fail-now-error'
 import { RetryLaterError } from './retry-later-error'
 import type { TaskHandlers } from './task-handler'
 import { runTask, runWorker } from './worker'
@@ -90,6 +91,21 @@ describe('runTask', () => {
       expect.objectContaining({ id: queued.id }),
       'still failing'
     )
+  })
+
+  test('a FailNowError marks the task dead on its first attempt', async () => {
+    const queued = await enqueueProfile()
+    const onDead = mock(async () => {})
+    const run = failingWith(new FailNowError('the DOCX is damaged'))
+
+    await runNext({ 'candidate.extract_profile': { run, onDead } })
+
+    expect(await tasksRepo.findById(queued.id)).toMatchObject({
+      status: 'dead',
+      attempts: 1,
+      lastError: 'the DOCX is damaged',
+    })
+    expect(onDead).toHaveBeenCalledTimes(1)
   })
 
   test('a RetryLaterError postpones the task without spending an attempt', async () => {

@@ -13,6 +13,7 @@ import { Compile } from 'typebox/compile'
 import { Create } from 'typebox/value'
 
 import { llmModel, llmRpm } from '@/server/config/env'
+import { FailNowError } from '@/server/shared/queue/fail-now-error'
 import { RetryLaterError } from '@/server/shared/queue/retry-later-error'
 
 import { LLM_PROVIDERS, type LlmSettings, parseLlmSettings } from './config'
@@ -107,8 +108,9 @@ const retryAfterMs = (headers: Record<string, string> | undefined): number => {
  * RetryLaterError, which postpones the task without spending one. The SDK
  * never retries on its own: the queue does. Azure is told not to store the
  * request, since it carries resume text. Anthropic is asked to hand a request
- * its model declines to the model it recommends; a decline that stays one
- * fails the attempt with a message that says so.
+ * its model declines to the model it recommends; a decline that stays one,
+ * or a content filter, fails the task at once, since asking again would
+ * decline again.
  */
 export const generateJson = async <Schema extends TSchema>(
   request: JsonRequest<Schema>,
@@ -146,7 +148,7 @@ export const generateJson = async <Schema extends TSchema>(
       },
     })
     if (result.finishReason === 'content-filter') {
-      throw new Error('the model declined to answer')
+      throw new FailNowError('the model declined to answer')
     }
     return { output: result.output, model: result.response.modelId }
   } catch (error) {
