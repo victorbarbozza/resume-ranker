@@ -47,7 +47,7 @@ Both follow the same steps:
 
 The app never changes the schema: it starts only after the migration step exits successfully.
 
-One process serves the API and the screen and works the task queue, so the whole app is one container with one replica. The LLM pace is kept in memory, which holds because one process runs; a DOCX is checked to unzip to at most 50 MB before it is read, so a zip bomb fails its task instead of filling the memory the API shares.
+One process serves the API and the screen and works the task queue, so the whole app is one container with one replica. The LLM pace is kept in memory, which holds because one process runs; a DOCX is checked to unzip to at most 10 MB before it is read, so a zip bomb fails its task at once instead of filling the memory the API shares. A task that cannot succeed by trying again, such as that file or an answer the LLM declines, is dead on its first attempt.
 
 ### Signing in
 
