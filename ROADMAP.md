@@ -104,16 +104,16 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 9. Access control
 
-- [ ] Password hashing with scrypt from `node:crypto`, constant-time compare, tests
-- [ ] `bun run user:create` script (the only way to create users)
-- [ ] Rate limit service: reserve a slot before the password check, give it back on success, 10 failures per IP per 5 minutes, 429 with `Retry-After`, tests
-- [ ] Client IP from `X-Forwarded-For`
-- [ ] Sessions: random 32-byte token, sha256 stored, `HttpOnly` + `Secure` + `SameSite=Lax` cookie, 7-day expiry
-- [ ] `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
-- [ ] Session middleware on the API: every route requires a session by default, so the routes of earlier phases are protected at once; login and health stay public
-- [ ] `Origin` check on every non-GET request
-- [ ] Security headers from the server (`hono/secure-headers`: CSP, `frame-ancestors 'none'`, `nosniff`, referrer policy)
-- [ ] Integration tests: 401 without a session, 429 after 10 failures
+- [x] Password hashing with scrypt from `node:crypto` (N=2^14, r=8, p=5, the cost stored in the hash), constant-time compare; an unknown username still runs a hash, tests
+- [x] `bun run user:create <username>` script, the only way to create users: prints a random password once; bundled into the image as `create-user.mjs`
+- [x] Login rate limit: reserve a slot before the password check, give it back on success, 10 failures per IP per 5 minutes, 429 with `Retry-After`, tests
+- [x] Client IP from the last address of `X-Forwarded-For`, which the proxy sets
+- [x] Sessions: random 32-byte token, sha256 stored, `HttpOnly` + `Secure` + `SameSite=Lax` cookie, 7-day expiry
+- [x] `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- [x] Session middleware on the API: every route requires a session by default, so the routes of earlier phases are protected at once; login and health are the only public routes, listed in one place
+- [x] CSRF check (`hono/csrf`): a request a form could send (form, multipart, plain text or no body) needs `Sec-Fetch-Site: same-origin` or the app's `Origin`; JSON from another site is stopped by the CORS preflight, which the API never answers
+- [x] Security headers from the server (`hono/secure-headers`: CSP, `frame-ancestors 'none'`, `nosniff`, no referrer, HSTS)
+- [x] Integration tests: 401 on every route without a session (the test walks the route table, so a new route is covered), 429 after 10 failures, 403 from another site
 
 ## 10. Frontend
 
@@ -133,6 +133,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] `infra.yml`: `pulumi preview` on PRs, `pulumi up` on main, OIDC login
 - [ ] `deploy.yml`: build amd64 and arm64 images, push to GHCR, `compose pull && up -d --wait` over ssh (Postgres, migrations, app and worker, health check: the steps of `bun run dev`)
 - [ ] GitHub secrets: LLM API key, storage account key, database password, ssh key; the deploy sets `STORAGE_DRIVER=azure`
+- [ ] First user created over ssh with `docker compose exec app node create-user.mjs <username>`
 
 ## 12. Backups
 

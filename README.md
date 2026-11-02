@@ -46,6 +46,17 @@ Both follow the same steps:
 
 The server and the worker never change the schema: they start only after the migration step exits successfully.
 
+### Signing in
+
+Every route needs a session except the health check and the login, and there is no sign-up page or default account. Create a user once; the script prints a random password a single time and stores only its scrypt hash:
+
+```bash
+bun run user:create alice                            # the database of bun run dev
+docker compose exec app node create-user.mjs alice   # the database of the running image, here or on the server
+```
+
+The session cookie is `Secure`, which browsers accept on `http://localhost` too.
+
 ## Configuration
 
 Nothing needs to be configured to run locally: every variable has a default that matches `compose.yaml`. Set a variable in the shell to change it, for example `APP_PORT=3001 docker compose up -d`.
@@ -94,6 +105,7 @@ Resumes are stored by the server, under a key made from their sha256, through on
 | `bun run format`                            | Prettier                                            |
 | `bun run db:generate`                       | Generate a migration from the Drizzle schema        |
 | `bun run db:migrate`                        | Apply pending migrations (the step before the app)  |
+| `bun run user:create <username>`            | Create a user and print its random password once    |
 | `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres                  |
 
 ## Project layout
@@ -109,6 +121,7 @@ src/
     tasks/        one handler per task type; prompts/ holds one prompt per type
   server.ts       HTTP entry: the API, and the built screen in the image
   migrate.ts      migration step, run before the app
+  create-user.ts  creates a user: the only way to get one
   worker.ts       entry of the queue worker
 ```
 

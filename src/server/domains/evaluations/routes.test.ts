@@ -16,20 +16,28 @@ import {
   createJob,
   createReadyCandidate,
   generatedBy,
+  signedInHeaders,
 } from '@/server/test/fixtures'
 
+let signedIn: Record<string, string>
+
 beforeAll(prepareTestDatabase)
-beforeEach(resetDatabase)
+beforeEach(async () => {
+  await resetDatabase()
+  signedIn = await signedInHeaders()
+})
 
 const rank = (jobId: string, body: unknown) =>
   api.request(`/api/jobs/${jobId}/evaluations`, {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...signedIn, 'Content-Type': 'application/json' },
   })
 
 const ranking = async (jobId: string) =>
-  (await api.request(`/api/jobs/${jobId}/evaluations`)).json()
+  (
+    await api.request(`/api/jobs/${jobId}/evaluations`, { headers: signedIn })
+  ).json()
 
 const evaluateTasks = () =>
   db.select().from(tasks).where(eq(tasks.type, 'candidates.evaluate'))

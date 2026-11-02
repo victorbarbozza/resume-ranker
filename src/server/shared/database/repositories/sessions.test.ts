@@ -1,10 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
-import { randomHash } from '@/server/test/fixtures'
+import { createUser, randomHash } from '@/server/test/fixtures'
 
 import * as sessionsRepo from './sessions'
-import * as usersRepo from './users'
 
 beforeAll(prepareTestDatabase)
 beforeEach(resetDatabase)
@@ -12,10 +11,7 @@ beforeEach(resetDatabase)
 const hour = 60 * 60 * 1000
 
 const createSession = async (expiresInMs: number) => {
-  const user = await usersRepo.create({
-    username: `user-${randomHash().slice(0, 8)}`,
-    passwordHash: 'scrypt$salt$hash',
-  })
+  const user = await createUser()
   const idHash = randomHash()
   await sessionsRepo.create({
     idHash,
