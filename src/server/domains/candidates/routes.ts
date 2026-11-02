@@ -8,10 +8,7 @@ import {
 } from '@/server/domains/candidates/services/candidates'
 import { uploadResumes } from '@/server/domains/candidates/services/upload-resumes'
 import { limitBody, rejectInvalid } from '@/server/shared/http/middleware'
-import {
-  RESUME_FILE_MAX_BYTES,
-  UPLOAD_MAX_FILES,
-} from '@/server/shared/schemas/candidate.schema'
+import { RESUME_FILE_MAX_BYTES, UPLOAD_MAX_FILES } from '@/shared/limits'
 
 import { candidateIdParam, uploadResumesForm } from './routes.schemas'
 

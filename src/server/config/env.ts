@@ -1,3 +1,5 @@
+import { DEFAULT_RANKING_MAX_CANDIDATES } from '@/shared/limits'
+
 /** Defaults to the Postgres in compose.yaml, so a fresh clone runs with no configuration */
 export const databaseUrl =
   process.env.DATABASE_URL ?? 'postgres://dev:dev@localhost:55433/resume_ranker'
@@ -32,7 +34,7 @@ export const port = Number(process.env.PORT ?? 3000)
 /** WEB_DIR: the folder of the built screen, which the server serves next to the API; unset in development, where Vite serves it */
 export const webDir = process.env.WEB_DIR
 
-/** RANKING_MAX_CANDIDATES: most candidates one ranking of a whole area sends to the LLM, newest first */
+/** RANKING_MAX_CANDIDATES: most candidates one ranking sends to the LLM; a whole area takes the newest first */
 export const rankingMaxCandidates = Number(
-  process.env.RANKING_MAX_CANDIDATES ?? 50
+  process.env.RANKING_MAX_CANDIDATES ?? DEFAULT_RANKING_MAX_CANDIDATES
 )

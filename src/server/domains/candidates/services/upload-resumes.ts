@@ -5,10 +5,8 @@ import { putFile } from '@/server/shared/connectors/storage'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as resumeFilesRepo from '@/server/shared/database/repositories/resume-files'
 import * as tasksRepo from '@/server/shared/database/repositories/tasks'
-import {
-  FILE_NAME_MAX_LENGTH,
-  RESUME_FILE_MAX_BYTES,
-} from '@/server/shared/schemas/candidate.schema'
+import { FILE_NAME_MAX_LENGTH } from '@/server/shared/schemas/candidate.schema'
+import { RESUME_FILE_MAX_BYTES } from '@/shared/limits'
 
 import { detectResumeType } from './resume-type'
 

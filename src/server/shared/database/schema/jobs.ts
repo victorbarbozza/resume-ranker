@@ -10,11 +10,11 @@ import {
 
 import {
   JOB_STATUSES,
-  JOB_TITLE_MAX_LENGTH,
   type IJobRequirements,
   type JobStatus,
 } from '@/server/shared/schemas/job.schema'
 import { type Area, AREAS } from '@/shared/areas'
+import { JOB_TITLE_MAX_LENGTH } from '@/shared/limits'
 
 import {
   createdAt,
