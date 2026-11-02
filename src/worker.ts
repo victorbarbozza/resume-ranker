@@ -1,4 +1,6 @@
+import { storageDir, storageDriver } from '@/server/config/env'
 import { llmSettings } from '@/server/shared/connectors/llm'
+import { fileStorage } from '@/server/shared/connectors/storage'
 import { POLL_INTERVAL_MS } from '@/server/shared/queue/config'
 import { runWorker } from '@/server/shared/queue/worker'
 import { handlers } from '@/server/tasks/handlers'
@@ -19,9 +21,13 @@ try {
       `✓ LLM: ${llm.provider} ${llm.modelId}, up to ${llm.rpm} calls a minute`
     )
   }
+  await fileStorage()
+  console.info(
+    `✓ Storage: ${storageDriver === 'fs' ? `fs at ${storageDir}` : storageDriver}`
+  )
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error)
-  console.error(`✗ LLM settings: ${reason}`)
+  console.error(`✗ Settings: ${reason}`)
   process.exit(1)
 }
 
