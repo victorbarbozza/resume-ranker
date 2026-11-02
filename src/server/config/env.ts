@@ -25,3 +25,9 @@ export const storageDriver = process.env.STORAGE_DRIVER ?? 'fs'
 
 /** STORAGE_DIR: the folder of the `fs` driver; relative to the working directory, the image sets an absolute path */
 export const storageDir = process.env.STORAGE_DIR ?? 'data/files'
+
+/** PORT: the port of the HTTP server */
+export const port = Number(process.env.PORT ?? 3000)
+
+/** WEB_DIR: the folder of the built screen, which the server serves next to the API; unset in development, where Vite serves it */
+export const webDir = process.env.WEB_DIR

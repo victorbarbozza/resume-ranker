@@ -8,15 +8,15 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 2. Project base
 
-- [x] Next.js 16 app, TypeScript strict, `@/*` alias
-- [x] Prettier and ESLint (Next rules, import order, client code cannot import server modules)
+- [x] Hono API and a React screen built with Vite (replaced the first Next.js 16 app), TypeScript strict, `@/*` alias
+- [x] Prettier and ESLint (typescript-eslint, React hooks, accessibility, import order, client code cannot import server modules)
 - [x] Postgres 16 in `compose.yaml`, bound to localhost
 - [x] Environment config in `src/server/config/env.ts`, with defaults that need no setup
 - [x] Drizzle config and Postgres connector
-- [x] `httpHandler` wrapper and `HTTPError`, with tests
+- [x] API app with TypeBox validation per part of the request, body limits, and every error answered as `{ error, message }` (`HTTPError`), with tests
 - [x] `GET /api/health` with a database ping
-- [x] Client fetch helper (`fetchJson`, `ApiError`) and React Query provider
-- [x] Dockerfile (standalone output, runs on Node) and `app` service in compose
+- [x] Typed API client (`hc`), fetch helper (`fetchJson`, `ApiError`) and React Query provider
+- [x] Dockerfile (server, worker and migration bundled for Node, plus the built screen) and `app` service in compose
 - [x] CI workflow: lint, typecheck, format, test, build
 - [x] README with local setup and naming rules
 - [x] `bun run dev` (`scripts/dev.ts`): checks Docker, waits for a healthy Postgres, runs every app process with prefixed logs
@@ -110,15 +110,15 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [ ] Client IP from `X-Forwarded-For`
 - [ ] Sessions: random 32-byte token, sha256 stored, `HttpOnly` + `Secure` + `SameSite=Lax` cookie, 7-day expiry
 - [ ] `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
-- [ ] Auth step in `httpHandler`: session required by default, so every route from earlier phases is protected at once; `auth: 'public'` for login and health
+- [ ] Session middleware on the API: every route requires a session by default, so the routes of earlier phases are protected at once; login and health stay public
 - [ ] `Origin` check on every non-GET request
-- [ ] Security headers in `next.config.ts` (CSP, `frame-ancestors 'none'`, `nosniff`, referrer policy)
+- [ ] Security headers from the server (`hono/secure-headers`: CSP, `frame-ancestors 'none'`, `nosniff`, referrer policy)
 - [ ] Integration tests: 401 without a session, 429 after 10 failures
 
 ## 10. Frontend
 
 - [ ] Design tokens and base components (button, field, chip, table)
-- [ ] Login page; `src/proxy.ts` sends signed-out page visits to `/login`
+- [ ] TanStack Router and a login page; a signed-out visit to any page goes to `/login`
 - [ ] Jobs list, create form with an area picker, job page with status and requirements
 - [ ] Candidates page: multi-file upload of PDF and DOCX, sent in requests of up to 20 files, with per-file status and Retry
 - [ ] Ranking on the job page: scope (whole area or selected), progress, table with stale and other-area chips

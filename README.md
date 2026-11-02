@@ -6,7 +6,8 @@ Rank candidates for a job opening. Register a job, upload resumes (PDF or DOCX) 
 
 ## Stack
 
-- Next.js 16 (App Router) for the UI and the API
+- Hono for the API, on Node in the image
+- React and Vite for the screen, a single-page app the same server serves
 - PostgreSQL 16 with Drizzle ORM: data and task queue
 - TypeBox for request and LLM output schemas
 - Vercel AI SDK for the LLM: Azure OpenAI, Ollama, or a fake model that needs no key
@@ -26,7 +27,7 @@ bun install
 bun run dev       # starts Postgres in Docker, then http://localhost:3000
 ```
 
-`bun run dev` runs the deploy steps on your machine, in the order compose runs them on the server: check Docker, start Postgres and wait until it is healthy, apply pending migrations, start the web server and the worker with live reload, then wait for `/api/health`. Each step prints its name, each process prints its name in front of every log line, and a failed step stops the ones after it. Ctrl+C stops the app; Postgres keeps running until `bun run dev:down`.
+`bun run dev` runs the deploy steps on your machine, in the order compose runs them on the server: check Docker, start Postgres and wait until it is healthy, apply pending migrations, start the API, the screen and the worker with live reload, then wait for `/api/health` through the screen's dev server. The screen is on http://localhost:3000; Vite sends `/api` to the API on port 3001. Each step prints its name, each process prints its name in front of every log line, and a failed step stops the ones after it. Ctrl+C stops the app; Postgres keeps running until `bun run dev:down`.
 
 To run the production image instead, the same way the server does:
 
@@ -36,14 +37,14 @@ docker compose up -d --build --wait
 
 Both follow the same steps:
 
-| Step       | `bun run dev`                              | `docker compose up` (local and on the server)                |
-| ---------- | ------------------------------------------ | ------------------------------------------------------------ |
-| Database   | `docker compose up -d --wait postgres`     | `postgres` service, healthy                                  |
-| Migrations | `bun src/migrate.ts`                       | `migrate` service: `node migrate.mjs`, the same file bundled |
-| App        | `next dev` and `bun --watch src/worker.ts` | `app` (`node server.js`) and `worker` (`node worker.mjs`)    |
-| Health     | waits for `GET /api/health`                | `app` health check, which `--wait` waits for                 |
+| Step       | `bun run dev`                                                                    | `docker compose up` (local and on the server)                                    |
+| ---------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Database   | `docker compose up -d --wait postgres`                                           | `postgres` service, healthy                                                      |
+| Migrations | `bun src/migrate.ts`                                                             | `migrate` service: `node migrate.mjs`, the same file bundled                     |
+| App        | `bun --watch src/server.ts` (API), Vite (screen) and `bun --watch src/worker.ts` | `app` (`node server.mjs`: API and built screen) and `worker` (`node worker.mjs`) |
+| Health     | waits for `GET /api/health`                                                      | `app` health check, which `--wait` waits for                                     |
 
-The web server and the worker never change the schema: they start only after the migration step exits successfully.
+The server and the worker never change the schema: they start only after the migration step exits successfully.
 
 ## Configuration
 
@@ -86,9 +87,9 @@ Resumes are stored by the server, under a key made from their sha256, through on
 | Script                                      | What it does                                        |
 | ------------------------------------------- | --------------------------------------------------- |
 | `bun run dev`                               | Runs the deploy steps locally, with live reload     |
-| `bun run build`                             | Production build (standalone output)                |
+| `bun run build`                             | Builds the screen into `dist/web`                   |
 | `bun run lint`                              | ESLint                                              |
-| `bun run typecheck`                         | Route types, then `tsc --noEmit`                    |
+| `bun run typecheck`                         | `tsc --noEmit`                                      |
 | `bun run test`                              | Unit and integration tests (needs `bun run dev:up`) |
 | `bun run format`                            | Prettier                                            |
 | `bun run db:generate`                       | Generate a migration from the Drizzle schema        |
@@ -99,21 +100,19 @@ Resumes are stored by the server, under a key made from their sha256, through on
 
 ```
 src/
-  app/            pages and thin route.ts files
-  components/     UI components
-  hooks/          React Query hooks
-  services/       client-side API calls
-  lib/            client helpers
+  web/            the screen: index.html, main.tsx, lib/ (typed API client, query client)
   server/
+    api.ts        the Hono app: every route under /api, errors as { error, message }
     config/       environment variables
-    domains/      per domain: handlers (validation) and services (rules)
-    shared/       database, queue, connectors, HTTP wrapper
+    domains/      per domain: routes.ts (paths and validation) and services/ (rules)
+    shared/       database, queue, connectors, HTTP middleware
     tasks/        one handler per task type; prompts/ holds one prompt per type
+  server.ts       HTTP entry: the API, and the built screen in the image
   migrate.ts      migration step, run before the app
   worker.ts       entry of the queue worker
 ```
 
-A request flows route file → handler → service → repository or connector, and no layer is skipped. Client code may import types from `src/server`, never modules; ESLint enforces it. Code that both sides run, such as the list of areas, lives in `src/shared`.
+A request flows route (path and validation) → service → repository or connector, and no layer is skipped. The screen calls the API through a client typed from those routes (`src/web/lib/api.ts`). Client code may import types from `src/server`, never modules; ESLint enforces it. Code that both sides run, such as the list of areas, lives in `src/shared`.
 
 ## Tests
 

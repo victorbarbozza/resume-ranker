@@ -1,32 +1,22 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { eq } from 'drizzle-orm'
 
+import { api } from '@/server/api'
 import { db } from '@/server/shared/connectors/postgres'
 import * as jobsRepo from '@/server/shared/database/repositories/jobs'
 import { tasks } from '@/server/shared/database/schema'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import { createJob, generatedBy } from '@/server/test/fixtures'
 
-import { handler as postJob } from './create-job'
-import { handler as deleteJob } from './delete-job'
-import { handler as getJob } from './get-job'
-import { handler as listJobs } from './list-jobs'
-import { handler as retryAnalysis } from './retry-job-analysis'
-import { handler as patchJob } from './update-job'
-
 beforeAll(prepareTestDatabase)
 beforeEach(resetDatabase)
 
-const url = 'http://localhost/api/jobs'
-
-const send = (method: string, body?: unknown) =>
-  new Request(url, {
+const send = (method: string, path: string, body?: unknown) =>
+  api.request(`/api/jobs${path}`, {
     method,
     body: body === undefined ? undefined : JSON.stringify(body),
     headers: { 'Content-Type': 'application/json' },
   })
-
-const withId = (id: string) => ({ params: Promise.resolve({ id }) })
 
 const analysisTasks = () =>
   db.select().from(tasks).where(eq(tasks.type, 'job.analyze'))
@@ -39,7 +29,7 @@ const newJob = {
 
 describe('POST /api/jobs', () => {
   test('stores a pending job and queues its analysis', async () => {
-    const response = await postJob(send('POST', newJob))
+    const response = await send('POST', '', newJob)
     const job = await response.json()
 
     expect(response.status).toBe(201)
@@ -57,7 +47,7 @@ describe('POST /api/jobs', () => {
     ]
 
     for (const body of invalid) {
-      const response = await postJob(send('POST', body))
+      const response = await send('POST', '', body)
       expect(response.status).toBe(400)
       expect((await response.json()).error).toBe('VALIDATION_ERROR')
     }
@@ -72,7 +62,7 @@ describe('GET /api/jobs', () => {
     const deleted = await createJob({ title: 'Deleted' })
     await jobsRepo.softDelete(deleted.id)
 
-    const response = await listJobs(send('GET'))
+    const response = await send('GET', '')
     const { jobs } = await response.json()
 
     expect(jobs.map((job: { title: string }) => job.title)).toEqual([
@@ -86,9 +76,9 @@ describe('GET /api/jobs/:id', () => {
   test('answers the job, 404 for an unknown one and 400 for an id that is not a uuid', async () => {
     const job = await createJob()
 
-    const found = await getJob(send('GET'), withId(job.id))
-    const missing = await getJob(send('GET'), withId(crypto.randomUUID()))
-    const invalid = await getJob(send('GET'), withId('42'))
+    const found = await send('GET', `/${job.id}`)
+    const missing = await send('GET', `/${crypto.randomUUID()}`)
+    const invalid = await send('GET', `/${'42'}`)
 
     expect(await found.json()).toEqual(job)
     expect(missing.status).toBe(404)
@@ -107,10 +97,9 @@ describe('PATCH /api/jobs/:id', () => {
       generatedBy
     )
 
-    const response = await patchJob(
-      send('PATCH', { title: 'Staff Engineer' }),
-      withId(job.id)
-    )
+    const response = await send('PATCH', `/${job.id}`, {
+      title: 'Staff Engineer',
+    })
 
     expect(await response.json()).toMatchObject({
       title: 'Staff Engineer',
@@ -126,11 +115,10 @@ describe('PATCH /api/jobs/:id', () => {
   test('rejects an empty edit and answers 404 for an unknown job', async () => {
     const job = await createJob()
 
-    const empty = await patchJob(send('PATCH', {}), withId(job.id))
-    const missing = await patchJob(
-      send('PATCH', { title: 'Staff Engineer' }),
-      withId(crypto.randomUUID())
-    )
+    const empty = await send('PATCH', `/${job.id}`, {})
+    const missing = await send('PATCH', `/${crypto.randomUUID()}`, {
+      title: 'Staff Engineer',
+    })
 
     expect(empty.status).toBe(400)
     expect(missing.status).toBe(404)
@@ -142,9 +130,9 @@ describe('DELETE /api/jobs/:id', () => {
   test('hides the job, and a second delete answers 404', async () => {
     const job = await createJob()
 
-    const first = await deleteJob(send('DELETE'), withId(job.id))
-    const second = await deleteJob(send('DELETE'), withId(job.id))
-    const read = await getJob(send('GET'), withId(job.id))
+    const first = await send('DELETE', `/${job.id}`)
+    const second = await send('DELETE', `/${job.id}`)
+    const read = await send('GET', `/${job.id}`)
 
     expect(first.status).toBe(204)
     expect(second.status).toBe(404)
@@ -157,7 +145,7 @@ describe('POST /api/jobs/:id/retry', () => {
     const job = await createJob()
     await jobsRepo.markAnalysisFailed(job.id, 1)
 
-    const response = await retryAnalysis(send('POST'), withId(job.id))
+    const response = await send('POST', `/${job.id}/retry`)
 
     expect(response.status).toBe(202)
     expect((await response.json()).status).toBe('pending')
@@ -167,11 +155,8 @@ describe('POST /api/jobs/:id/retry', () => {
   test('answers 409 while the analysis has not failed, and 404 for an unknown job', async () => {
     const job = await createJob()
 
-    const pending = await retryAnalysis(send('POST'), withId(job.id))
-    const missing = await retryAnalysis(
-      send('POST'),
-      withId(crypto.randomUUID())
-    )
+    const pending = await send('POST', `/${job.id}/retry`)
+    const missing = await send('POST', `/${crypto.randomUUID()}/retry`)
 
     expect(pending.status).toBe(409)
     expect((await pending.json()).error).toBe('ANALYSIS_NOT_FAILED')
