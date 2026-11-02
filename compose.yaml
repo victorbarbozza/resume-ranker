@@ -36,11 +36,6 @@ services:
       AZURE_STORAGE_ACCOUNT:
       AZURE_STORAGE_KEY:
       AZURE_STORAGE_CONTAINER:
-      S3_ENDPOINT:
-      S3_REGION:
-      S3_BUCKET:
-      S3_ACCESS_KEY_ID:
-      S3_SECRET_ACCESS_KEY:
     volumes:
       - resume-files:/app/data
     ports:
@@ -78,11 +73,6 @@ services:
       AZURE_STORAGE_ACCOUNT:
       AZURE_STORAGE_KEY:
       AZURE_STORAGE_CONTAINER:
-      S3_ENDPOINT:
-      S3_REGION:
-      S3_BUCKET:
-      S3_ACCESS_KEY_ID:
-      S3_SECRET_ACCESS_KEY:
     volumes:
       - resume-files:/app/data
     extra_hosts:

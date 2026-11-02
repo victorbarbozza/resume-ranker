@@ -20,7 +20,7 @@ export const llmRpm = process.env.LLM_RPM
 export const ollamaBaseUrl =
   process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1'
 
-/** STORAGE_DRIVER: where uploaded files live, `fs`, `azure` or `s3`; `fs` by default */
+/** STORAGE_DRIVER: where uploaded files live, `fs` (a folder) or `azure` (Azure Blob); `fs` by default */
 export const storageDriver = process.env.STORAGE_DRIVER ?? 'fs'
 
 /** STORAGE_DIR: the folder of the `fs` driver; relative to the working directory, the image sets an absolute path */

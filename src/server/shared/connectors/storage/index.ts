@@ -3,9 +3,9 @@ import { createStorage, type Driver, type Storage } from 'unstorage'
 import { storageDir, storageDriver } from '@/server/config/env'
 
 /** Every place uploaded files can live, by the name STORAGE_DRIVER takes */
-export const STORAGE_DRIVER_NAMES = ['fs', 'azure', 's3'] as const
+const STORAGE_DRIVER_NAMES = ['fs', 'azure'] as const
 /** One of STORAGE_DRIVER_NAMES */
-export type StorageDriverName = (typeof STORAGE_DRIVER_NAMES)[number]
+type StorageDriverName = (typeof STORAGE_DRIVER_NAMES)[number]
 
 /** A variable a driver needs; throws an error that names it when it is not set */
 const required = (driver: StorageDriverName, name: string): string => {
@@ -32,35 +32,26 @@ const STORAGE_DRIVERS: Record<StorageDriverName, () => Promise<Driver>> = {
       containerName: required('azure', 'AZURE_STORAGE_CONTAINER'),
     })
   },
-  s3: async () => {
-    const { default: s3Driver } = await import('unstorage/drivers/s3')
-    return s3Driver({
-      endpoint: required('s3', 'S3_ENDPOINT'),
-      region: required('s3', 'S3_REGION'),
-      bucket: required('s3', 'S3_BUCKET'),
-      accessKeyId: required('s3', 'S3_ACCESS_KEY_ID'),
-      secretAccessKey: required('s3', 'S3_SECRET_ACCESS_KEY'),
-    })
-  },
 }
 
 /** The storage of this process, created on first use */
-let storage: Promise<Storage> | undefined
+let storage: Storage | undefined
 
-/** Creates the storage STORAGE_DRIVER picks; throws an error that names what is wrong */
-const createFileStorage = async (): Promise<Storage> => {
+/**
+ * The file storage STORAGE_DRIVER picks, created on first use. Throws an
+ * error that names what is wrong; the worker calls it on start, so a wrong
+ * variable stops it there.
+ */
+export const fileStorage = async (): Promise<Storage> => {
+  if (storage) return storage
+
   const driver = STORAGE_DRIVER_NAMES.find((name) => name === storageDriver)
   if (!driver) {
     throw new Error(
       `STORAGE_DRIVER must be one of ${STORAGE_DRIVER_NAMES.join(', ')}, not "${storageDriver}"`
     )
   }
-  return createStorage({ driver: await STORAGE_DRIVERS[driver]() })
-}
-
-/** The file storage of this process; the worker calls it on start, so a wrong variable stops it there */
-export const fileStorage = (): Promise<Storage> => {
-  storage ??= createFileStorage()
+  storage = createStorage({ driver: await STORAGE_DRIVERS[driver]() })
   return storage
 }
 
@@ -68,6 +59,12 @@ export const fileStorage = (): Promise<Storage> => {
 export const putFile = async (key: string, bytes: Uint8Array): Promise<void> =>
   (await fileStorage()).setItemRaw(key, bytes)
 
-/** A stored file, or null when nothing is stored under the key */
-export const getFile = async (key: string): Promise<Uint8Array | null> =>
-  (await fileStorage()).getItemRaw<Uint8Array>(key)
+/**
+ * A stored file, or null when the storage gives nothing back. Drivers answer
+ * with a Buffer or an ArrayBuffer, so the bytes are wrapped as one type; the
+ * Azure driver also answers null when it cannot reach the storage.
+ */
+export const getFile = async (key: string): Promise<Uint8Array | null> => {
+  const raw = await (await fileStorage()).getItemRaw(key)
+  return raw === null ? null : new Uint8Array(raw)
+}
