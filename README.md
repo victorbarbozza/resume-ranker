@@ -125,7 +125,7 @@ STATE_STORAGE_ACCOUNT=stresumerankerstate42 PULUMI_CONFIG_PASSPHRASE=... BUDGET_
   infra/azure/scripts/bootstrap.sh
 ```
 
-It creates the storage account that keeps the Pulumi state, a service principal for the CI with a client secret, and the GitHub secrets the workflows read. Running it again rotates the secret.
+It is the only step that needs an owner of the subscription. It registers the resource providers, creates the `rg-resume-ranker` resource group and the storage account that keeps the Pulumi state, and gives the CI a service principal with a client secret and the GitHub secrets the workflows read. That principal holds two grants and nothing else: a custom role, `resume-ranker-deployer`, on `rg-resume-ranker` only, which allows the resource types the stack creates (Container Apps, PostgreSQL, storage, Azure OpenAI, budgets) and cannot grant access; and read and write on the `pulumi-state` container. Running it again rotates the secret and updates the role.
 
 Then every push to `main` builds the image, pushes it to GHCR, applies `infra/azure` with Pulumi, runs the migration job with the new image, moves the app to it and waits for `/api/health`. On the first push, make the `resume-ranker` package public in GitHub once the image is there, so Container Apps can pull it, and run the workflow again. Pull requests that touch `infra/` get a `pulumi preview`.
 
