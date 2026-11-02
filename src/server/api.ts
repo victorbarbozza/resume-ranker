@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 
 import { candidatesRoutes } from '@/server/domains/candidates/routes'
+import { evaluationsRoutes } from '@/server/domains/evaluations/routes'
 import { healthRoutes } from '@/server/domains/health/routes'
 import { jobsRoutes } from '@/server/domains/jobs/routes'
 import { errorResponse } from '@/server/shared/http/error-response'
@@ -14,6 +15,7 @@ export const api = new Hono()
   .basePath('/api')
   .route('/health', healthRoutes)
   .route('/jobs', jobsRoutes)
+  .route('/jobs', evaluationsRoutes)
   .route('/candidates', candidatesRoutes)
   .all('*', (c) =>
     c.json({ error: 'ERR_NOT_FOUND', message: 'route not found' }, 404)
