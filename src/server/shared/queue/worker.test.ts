@@ -103,6 +103,23 @@ describe('runTask', () => {
     expect(Date.parse(saved?.runAt ?? '') - Date.now()).toBeGreaterThan(28_000)
   })
 
+  test('a task claimed past its last attempt is dead without running', async () => {
+    const queued = await enqueueProfile()
+    await db.update(tasks).set({ attempts: 5 }).where(eq(tasks.id, queued.id))
+    const run = mock(async () => {})
+    const onDead = mock(async () => {})
+
+    await runNext({ 'candidate.extract_profile': { run, onDead } })
+
+    expect(run).not.toHaveBeenCalled()
+    expect(onDead).toHaveBeenCalledTimes(1)
+    expect(await tasksRepo.findById(queued.id)).toMatchObject({
+      status: 'dead',
+      attempts: 6,
+      lastError: 'the worker stopped during every attempt',
+    })
+  })
+
   test('a task without a handler is marked dead', async () => {
     await enqueueProfile()
 

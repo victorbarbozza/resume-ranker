@@ -61,7 +61,7 @@ services:
   worker:
     build: .
     image: ${APP_IMAGE:-resume-ranker:local}
-    command: ['node', 'worker.mjs']
+    command: ['node', '--max-old-space-size=384', 'worker.mjs']
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
       LLM_MODEL:
