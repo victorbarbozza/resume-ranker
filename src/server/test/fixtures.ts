@@ -37,11 +37,14 @@ export const createUser = async (
   return user
 }
 
-/** Headers of a signed-in browser: the cookie of a new session */
+/**
+ * Headers of a signed-in browser on the app's own page: the cookie of a new
+ * session and the Origin the CSRF check expects
+ */
 export const signedInHeaders = async (): Promise<Record<string, string>> => {
   const user = await createUser()
   const token = await createSession(user.id, null)
-  return { Cookie: `session=${token}` }
+  return { Cookie: `session=${token}`, Origin: 'http://localhost' }
 }
 
 /** A pending engineering job; override any field */

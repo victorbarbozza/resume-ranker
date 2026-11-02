@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { csrf } from 'hono/csrf'
 
 import { requireSession } from '@/server/domains/auth/middleware'
 import { authRoutes } from '@/server/domains/auth/routes'
@@ -13,12 +14,15 @@ import { errorResponse } from '@/server/shared/http/error-response'
  * answered as `{ error, message }`. Chained in one expression, so `Api` describes every
  * route for the typed client of the screen.
  *
- * `requireSession` runs before every route and answers 401 without a live
- * session, except for health and login.
+ * Two checks run before every route. `csrf` refuses a request a form on
+ * another site could send (form, multipart, plain text or no body) unless the
+ * browser marks it same-origin; JSON from another site never gets here, since
+ * the API answers no CORS preflight. `requireSession` answers 401 without a
+ * live session, except for health and login.
  */
 export const api = new Hono()
   .basePath('/api')
-  .use(requireSession)
+  .use(csrf(), requireSession)
   .route('/health', healthRoutes)
   .route('/auth', authRoutes)
   .route('/jobs', jobsRoutes)

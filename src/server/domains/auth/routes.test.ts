@@ -177,3 +177,26 @@ describe('session middleware', () => {
     expect((await api.request('/api/health')).status).toBe(200)
   })
 })
+
+describe('CSRF check', () => {
+  test('refuses a form request from another site and lets the same site through', async () => {
+    const { Cookie } = await signedInHeaders()
+    const logout = (headers: Record<string, string>) =>
+      api.request('/api/auth/logout', {
+        method: 'POST',
+        headers: { Cookie, ...headers },
+      })
+
+    const otherOrigin = await logout({ Origin: 'https://evil.example' })
+    const crossSite = await logout({ 'Sec-Fetch-Site': 'cross-site' })
+    const sameOrigin = await logout({ 'Sec-Fetch-Site': 'same-origin' })
+
+    expect(otherOrigin.status).toBe(403)
+    expect(await otherOrigin.json()).toEqual({
+      error: 'ERR_FORBIDDEN',
+      message: 'request refused',
+    })
+    expect(crossSite.status).toBe(403)
+    expect(sameOrigin.status).toBe(204)
+  })
+})

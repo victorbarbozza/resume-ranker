@@ -1,5 +1,5 @@
 /** Error code for each status when the thrower gives none */
-const defaultCodes: Record<number, string> = {
+export const defaultCodes: Record<number, string> = {
   400: 'ERR_BAD_REQUEST',
   401: 'ERR_UNAUTHORIZED',
   403: 'ERR_FORBIDDEN',
