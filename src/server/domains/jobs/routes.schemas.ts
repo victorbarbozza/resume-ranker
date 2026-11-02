@@ -1,10 +1,10 @@
 import { Type } from 'typebox'
 
+import { AREAS } from '@/shared/areas'
 import {
   JOB_DESCRIPTION_MAX_LENGTH,
   JOB_TITLE_MAX_LENGTH,
-} from '@/server/shared/schemas/job.schema'
-import { AREAS } from '@/shared/areas'
+} from '@/shared/limits'
 
 /** The id in the path of every route of one job */
 export const jobIdParam = Type.Object({ id: Type.String({ format: 'uuid' }) })

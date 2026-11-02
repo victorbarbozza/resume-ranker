@@ -117,12 +117,16 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 10. Frontend
 
-- [ ] Design tokens and base components (button, field, chip, table)
-- [ ] TanStack Router and a login page; a signed-out visit to any page goes to `/login`
-- [ ] Jobs list, create form with an area picker, job page with status and requirements
-- [ ] Candidates page: multi-file upload of PDF and DOCX, sent in requests of up to 20 files, with per-file status and Retry
-- [ ] Ranking on the job page: scope (whole area or selected), progress, table with stale and other-area chips
-- [ ] Polling while work is pending
+- [x] Design tokens (the platform's own font, one blue for what can be pressed, a color per state) and base components: button, fields, a select with its own list (the system picker on touch screens), segmented control, status labels and tags, progress bar, sheet on the native `<dialog>`, page layout
+- [x] TanStack Router, declared in one file, and a login page; a signed-out visit to any page goes to `/login` and comes back after signing in
+- [x] Client typed from the API routes end to end (`hc` and `parseResponse`); a session that ends mid-use sends the person to sign in again
+- [x] Jobs list with search and filters, create and edit form with an area picker, job page with status and requirements, delete, and retry of a failed analysis
+- [x] Candidates page: drop any number of PDF and DOCX files anywhere on the page or choose them, checked in the browser, sent five per request and two requests at a time, with per-file status and Send again for files that got no answer; a row opens the profile in a sheet, with Retry and Delete
+- [x] Ranking on the job page, above the requirements: the whole area or candidates picked by hand (the job's area first, with earlier scores), progress, results best first with the top strength and gap, stale, other-area and placeholder tags, and one button to update stale or failed results; a row opens its summary, strengths and gaps
+- [x] Polling while work is pending: every 2 s in the first minute, every 5 s up to 5 minutes, then every 30 s
+- [x] Phone layout: a tab bar, sheets that rise from the bottom, and a ranking row that opens its result on its own screen, with previous and next
+- [x] English and Brazilian Portuguese: the language comes from the browser and can be changed from a selector; API errors are shown from their code, in the person's language
+- [x] Loading, empty and error states on every list; deletes asked in a sheet; counts and Clear filters on filtered lists
 
 ## 11. Deploy (Azure)
 
@@ -144,4 +148,8 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 - [ ] Re-extract profiles after the profile prompt changes: one LLM call per resume, started from the candidates page
 - [ ] Cheap pre-filter before the LLM once the base reaches thousands of resumes: embeddings (`pgvector`) or keywords pick the top candidates of the area, and only those are scored
+- [ ] Observability screen, already in the design: worker health, queue by task, model pace and 429 answers, stopped tasks with Retry
+- [ ] Candidate inspector, already in the design: rankings across jobs, open the resume
+- [ ] Smoke test of the screen in CI (Playwright): sign in, create a job, upload resumes, rank
+- [ ] Dark mode from the same tokens
 - [ ] Editable job requirements: `PATCH /api/jobs/:id/requirements`, `requirements_source` column so re-analysis never overwrites a person's edits, version bump, editable chips in the UI

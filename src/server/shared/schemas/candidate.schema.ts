@@ -25,10 +25,6 @@ export const CANDIDATE_NAME_MAX_LENGTH = 200
 export const FILE_NAME_MAX_LENGTH = 255
 /** Longest resume text stored; a longer extraction, such as a file built to expand when unzipped, is cut */
 export const RESUME_TEXT_MAX_CHARS = 100_000
-/** Largest resume file accepted: 2 MB */
-export const RESUME_FILE_MAX_BYTES = 2 * 1024 * 1024
-/** Most files one upload request takes; the screen splits a larger selection into several requests */
-export const UPLOAD_MAX_FILES = 20
 
 /** What the LLM extracts from a resume once; rankings read this, not the full text */
 export const candidateProfileSchema = Type.Object(

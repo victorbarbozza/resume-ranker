@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { check, integer, pgTable, uuid, varchar } from 'drizzle-orm/pg-core'
 
-import { RESUME_FILE_MAX_BYTES } from '@/server/shared/schemas/candidate.schema'
+import { RESUME_FILE_MAX_BYTES } from '@/shared/limits'
 
 import { candidates } from './candidates'
 import { createdAt } from './columns'

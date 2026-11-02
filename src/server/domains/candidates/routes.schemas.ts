@@ -1,6 +1,6 @@
 import { Type } from 'typebox'
 
-import { UPLOAD_MAX_FILES } from '@/server/shared/schemas/candidate.schema'
+import { UPLOAD_MAX_FILES } from '@/shared/limits'
 
 /** The id in the path of every route of one candidate */
 export const candidateIdParam = Type.Object({

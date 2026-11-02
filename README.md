@@ -11,7 +11,8 @@ Rank candidates for a job opening. Register a job, upload resumes (PDF or DOCX) 
 - PostgreSQL 16 with Drizzle ORM: data and task queue
 - TypeBox for request and LLM output schemas
 - Vercel AI SDK for the LLM: Azure OpenAI, Ollama, or a fake model that needs no key
-- TanStack Query on the client
+- TanStack Router and TanStack Query on the client, with a client typed from the API routes
+- i18next for the screen in English and Brazilian Portuguese
 - Bun for packages, scripts and tests
 
 ## Requirements
@@ -95,24 +96,25 @@ Resumes are stored by the server, under a key made from their sha256, through on
 
 ## Scripts
 
-| Script                                      | What it does                                        |
-| ------------------------------------------- | --------------------------------------------------- |
-| `bun run dev`                               | Runs the deploy steps locally, with live reload     |
-| `bun run build`                             | Builds the screen into `dist/web`                   |
-| `bun run lint`                              | ESLint                                              |
-| `bun run typecheck`                         | `tsc --noEmit`                                      |
-| `bun run test`                              | Unit and integration tests (needs `bun run dev:up`) |
-| `bun run format`                            | Prettier                                            |
-| `bun run db:generate`                       | Generate a migration from the Drizzle schema        |
-| `bun run db:migrate`                        | Apply pending migrations (the step before the app)  |
-| `bun run user:create <username>`            | Create a user and print its random password once    |
-| `bun run dev:up` / `dev:down` / `dev:reset` | Start, stop or wipe local Postgres                  |
+| Script                           | What it does                                                |
+| -------------------------------- | ----------------------------------------------------------- |
+| `bun run dev`                    | Runs the deploy steps locally, with live reload             |
+| `bun run build`                  | Builds the screen into `dist/web`                           |
+| `bun run lint`                   | ESLint                                                      |
+| `bun run typecheck`              | `tsc --noEmit`                                              |
+| `bun run test`                   | Unit and integration tests (needs `bun run dev:up`)         |
+| `bun run format`                 | Prettier                                                    |
+| `bun run db:generate`            | Generate a migration from the Drizzle schema                |
+| `bun run db:migrate`             | Apply pending migrations (the step before the app)          |
+| `bun run user:create <username>` | Create a user and print its random password once            |
+| `bun run dev:up` / `dev:down`    | Start or stop local Postgres                                |
+| `bun run dev:reset`              | Wipe everything local: containers, volumes and stored files |
 
 ## Project layout
 
 ```
 src/
-  web/            the screen: index.html, main.tsx, lib/ (typed API client, query client)
+  web/            the screen: router.tsx (every route), components/, domains/ (one folder per server domain), i18n/ (English and Portuguese), lib/ (typed API client, query client)
   server/
     api.ts        the Hono app: every route under /api, errors as { error, message }
     config/       environment variables

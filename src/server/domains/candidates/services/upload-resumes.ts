@@ -5,10 +5,8 @@ import { putFile } from '@/server/shared/connectors/storage'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as resumeFilesRepo from '@/server/shared/database/repositories/resume-files'
 import * as tasksRepo from '@/server/shared/database/repositories/tasks'
-import {
-  FILE_NAME_MAX_LENGTH,
-  RESUME_FILE_MAX_BYTES,
-} from '@/server/shared/schemas/candidate.schema'
+import { FILE_NAME_MAX_LENGTH } from '@/server/shared/schemas/candidate.schema'
+import { RESUME_FILE_MAX_BYTES } from '@/shared/limits'
 
 import { detectResumeType } from './resume-type'
 
@@ -17,11 +15,16 @@ import { detectResumeType } from './resume-type'
  *
  * - `accepted`: stored, with its profile queued
  * - `duplicate`: a live candidate already has the same file
- * - `rejected`: not stored, with the reason
+ * - `rejected`: not stored, with a code the screen translates and the reason in English
  */
 export type UploadResult =
   | { fileName: string; status: 'accepted' | 'duplicate'; candidateId: string }
-  | { fileName: string; status: 'rejected'; error: string }
+  | {
+      fileName: string
+      status: 'rejected'
+      code: 'FILE_SIZE' | 'FILE_TYPE' | 'STORE_FAILED'
+      error: string
+    }
 
 /**
  * Stores one file and queues its profile. The file goes to the storage under
@@ -37,6 +40,7 @@ const uploadResume = async (file: File): Promise<UploadResult> => {
     return {
       fileName,
       status: 'rejected',
+      code: 'FILE_SIZE',
       error: 'the file must have between 1 byte and 2 MB',
     }
   }
@@ -45,6 +49,7 @@ const uploadResume = async (file: File): Promise<UploadResult> => {
     return {
       fileName,
       status: 'rejected',
+      code: 'FILE_TYPE',
       error: 'only PDF and DOCX files are accepted',
     }
   }
@@ -96,6 +101,7 @@ export const uploadResumes = async (files: File[]): Promise<UploadResult[]> => {
       results.push({
         fileName: file.name,
         status: 'rejected',
+        code: 'STORE_FAILED',
         error: 'the file could not be stored; send it again',
       })
     }

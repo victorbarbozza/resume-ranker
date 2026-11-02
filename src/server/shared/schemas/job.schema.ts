@@ -2,16 +2,15 @@ import { type Static, Type } from 'typebox'
 
 import { generatedBySchema } from '@/server/shared/schemas/generated-by.schema'
 import { AREAS } from '@/shared/areas'
+import {
+  JOB_DESCRIPTION_MAX_LENGTH,
+  JOB_TITLE_MAX_LENGTH,
+} from '@/shared/limits'
 
 /** Lifecycle of a job's analysis: pending, then ready or failed */
 export const JOB_STATUSES = ['pending', 'ready', 'failed'] as const
 /** One of JOB_STATUSES */
 export type JobStatus = (typeof JOB_STATUSES)[number]
-
-/** Longest job title accepted */
-export const JOB_TITLE_MAX_LENGTH = 200
-/** Longest job description accepted */
-export const JOB_DESCRIPTION_MAX_LENGTH = 20_000
 
 /** Requirements the LLM extracts from a job description */
 export const jobRequirementsSchema = Type.Object(
