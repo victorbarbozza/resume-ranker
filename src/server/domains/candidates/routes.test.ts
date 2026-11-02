@@ -103,14 +103,14 @@ describe('POST /api/candidates', () => {
     const { results } = await response.json()
 
     expect(
-      results.map((result: { status: string; error?: string }) => [
+      results.map((result: { status: string; code?: string }) => [
         result.status,
-        result.error,
+        result.code,
       ])
     ).toEqual([
-      ['rejected', 'the file must have between 1 byte and 2 MB'],
-      ['rejected', 'the file must have between 1 byte and 2 MB'],
-      ['rejected', 'only PDF and DOCX files are accepted'],
+      ['rejected', 'FILE_SIZE'],
+      ['rejected', 'FILE_SIZE'],
+      ['rejected', 'FILE_TYPE'],
       ['accepted', undefined],
     ])
   })

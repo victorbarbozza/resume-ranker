@@ -15,11 +15,16 @@ import { detectResumeType } from './resume-type'
  *
  * - `accepted`: stored, with its profile queued
  * - `duplicate`: a live candidate already has the same file
- * - `rejected`: not stored, with the reason
+ * - `rejected`: not stored, with a code the screen translates and the reason in English
  */
 export type UploadResult =
   | { fileName: string; status: 'accepted' | 'duplicate'; candidateId: string }
-  | { fileName: string; status: 'rejected'; error: string }
+  | {
+      fileName: string
+      status: 'rejected'
+      code: 'FILE_SIZE' | 'FILE_TYPE' | 'STORE_FAILED'
+      error: string
+    }
 
 /**
  * Stores one file and queues its profile. The file goes to the storage under
@@ -35,6 +40,7 @@ const uploadResume = async (file: File): Promise<UploadResult> => {
     return {
       fileName,
       status: 'rejected',
+      code: 'FILE_SIZE',
       error: 'the file must have between 1 byte and 2 MB',
     }
   }
@@ -43,6 +49,7 @@ const uploadResume = async (file: File): Promise<UploadResult> => {
     return {
       fileName,
       status: 'rejected',
+      code: 'FILE_TYPE',
       error: 'only PDF and DOCX files are accepted',
     }
   }
@@ -94,6 +101,7 @@ export const uploadResumes = async (files: File[]): Promise<UploadResult[]> => {
       results.push({
         fileName: file.name,
         status: 'rejected',
+        code: 'STORE_FAILED',
         error: 'the file could not be stored; send it again',
       })
     }

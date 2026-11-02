@@ -54,6 +54,7 @@ describe('uploadResumes', () => {
       'accepted',
     ])
     expect(results[0]).toMatchObject({
+      code: 'STORE_FAILED',
       error: 'the file could not be stored; send it again',
     })
     expect(await db.$count(candidates)).toBe(1)
