@@ -4,7 +4,33 @@ import { Hono } from 'hono'
 import { secureHeaders } from 'hono/secure-headers'
 
 import { api } from '@/server/api'
-import { port, webDir } from '@/server/config/env'
+import { port, storageDir, storageDriver, webDir } from '@/server/config/env'
+import { llmSettings } from '@/server/shared/connectors/llm'
+import { fileStorage } from '@/server/shared/connectors/storage'
+import { POLL_INTERVAL_MS } from '@/server/shared/queue/config'
+import { runWorker } from '@/server/shared/queue/worker'
+import { handlers } from '@/server/tasks/handlers'
+
+try {
+  const llm = llmSettings()
+  if (llm.provider === 'fake') {
+    console.warn(
+      '! LLM is fake: every answer is a placeholder. Set LLM_MODEL, such as azure:<deployment>, to rank for real'
+    )
+  } else {
+    console.info(
+      `✓ LLM: ${llm.provider} ${llm.modelId}, up to ${llm.rpm} calls a minute`
+    )
+  }
+  await fileStorage()
+  console.info(
+    `✓ Storage: ${storageDriver === 'fs' ? `fs at ${storageDir}` : storageDriver}`
+  )
+} catch (error) {
+  const reason = error instanceof Error ? error.message : String(error)
+  console.error(`✗ Settings: ${reason}`)
+  process.exit(1)
+}
 
 /**
  * The HTTP server: the API under /api and, in the image, the built screen
@@ -37,10 +63,31 @@ if (webDir) {
   app.get('*', serveStatic({ root: webDir, path: 'index.html' }))
 }
 
-/** Listens until Ctrl+C or a container stop, then lets open requests finish */
+/** Listens until the process stops */
 const server = serve({ fetch: app.fetch, port }, ({ port }) =>
   console.info(`✓ Listening on http://localhost:${port}`)
 )
+
+/**
+ * Stops the queue worker, which runs in this same process: one container
+ * serves the API and works the tasks, so a single always-on replica is the
+ * whole app, and the LLM pace held in memory stays right. On Ctrl+C or a
+ * container stop, open requests and the task in progress finish, then the
+ * process exits.
+ */
+const stop = new AbortController()
+console.info(`✓ Worker polling every ${POLL_INTERVAL_MS / 1000} s`)
+
+/** The worker loop; settles once the task in progress has finished after a stop */
+const worker = runWorker(handlers, stop.signal)
+
 for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => server.close(() => process.exit(0)))
+  process.on(signal, () => {
+    stop.abort()
+    const closed = new Promise((resolve) => server.close(resolve))
+    void Promise.all([closed, worker]).then(() => {
+      console.info('✓ Stopped')
+      process.exit(0)
+    })
+  })
 }

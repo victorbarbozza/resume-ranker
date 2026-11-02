@@ -19,6 +19,17 @@ describe('parseLlmSettings', () => {
     ).toEqual({ provider: 'azure', modelId: 'my-deployment', rpm: 10 })
   })
 
+  test('reads an anthropic model, which needs its API key', () => {
+    expect(
+      parseLlmSettings('anthropic:claude-opus-5-5', undefined, {
+        ANTHROPIC_API_KEY: 'key',
+      })
+    ).toEqual({ provider: 'anthropic', modelId: 'claude-opus-5-5', rpm: 10 })
+    expect(() =>
+      parseLlmSettings('anthropic:claude-opus-5-5', undefined, {})
+    ).toThrow('LLM_MODEL=anthropic:claude-opus-5-5 needs ANTHROPIC_API_KEY')
+  })
+
   test('keeps a model id that has its own colon', () => {
     expect(parseLlmSettings('ollama:llama3.2:3b', undefined, {})).toEqual({
       provider: 'ollama',
@@ -41,7 +52,7 @@ describe('parseLlmSettings', () => {
 
   test('rejects an unknown provider and a missing model id', () => {
     expect(() => parseLlmSettings('gpt:4o', undefined, {})).toThrow(
-      'LLM_MODEL must be fake or <provider>:<model> with provider azure or ollama'
+      'LLM_MODEL must be fake or <provider>:<model> with provider azure or anthropic or ollama'
     )
     expect(() => parseLlmSettings('azure', undefined, azureKeys)).toThrow(
       'LLM_MODEL must be fake or <provider>:<model>'

@@ -1,3 +1,4 @@
+import { createAnthropic } from '@ai-sdk/anthropic'
 import { createAzure } from '@ai-sdk/azure'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
@@ -5,7 +6,7 @@ import type { LanguageModel } from 'ai'
 import { ollamaBaseUrl } from '@/server/config/env'
 
 /** Every real provider, by the name LLM_MODEL starts with */
-export const LLM_PROVIDER_NAMES = ['azure', 'ollama'] as const
+export const LLM_PROVIDER_NAMES = ['azure', 'anthropic', 'ollama'] as const
 /** One of LLM_PROVIDER_NAMES */
 export type LlmProviderName = (typeof LLM_PROVIDER_NAMES)[number]
 
@@ -28,6 +29,11 @@ export const LLM_PROVIDERS: Record<LlmProviderName, LlmProviderConfig> = {
     requires: ['AZURE_RESOURCE_NAME', 'AZURE_API_KEY'],
     rpm: 10,
     model: (deployment) => createAzure()(deployment),
+  },
+  anthropic: {
+    requires: ['ANTHROPIC_API_KEY'],
+    rpm: 10,
+    model: (name) => createAnthropic()(name),
   },
   ollama: {
     requires: [],

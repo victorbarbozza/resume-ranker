@@ -20,6 +20,7 @@
     "dev:reset": "docker compose down -v --remove-orphans && rm -rf data/files"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.94",
     "@ai-sdk/azure": "^4.0.114",
     "@ai-sdk/openai-compatible": "^3.0.82",
     "@azure/identity": "^4.14.1",

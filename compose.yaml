@@ -32,12 +32,20 @@ services:
     image: ${APP_IMAGE:-resume-ranker:local}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
+      LLM_MODEL:
+      LLM_RPM:
+      AZURE_RESOURCE_NAME:
+      AZURE_API_KEY:
+      ANTHROPIC_API_KEY:
+      OLLAMA_BASE_URL:
       STORAGE_DRIVER:
       AZURE_STORAGE_ACCOUNT:
       AZURE_STORAGE_KEY:
       AZURE_STORAGE_CONTAINER:
     volumes:
       - resume-files:/app/data
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     ports:
       - '127.0.0.1:${APP_PORT:-3000}:3000'
     depends_on:
@@ -56,32 +64,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-    restart: unless-stopped
-
-  worker:
-    build: .
-    image: ${APP_IMAGE:-resume-ranker:local}
-    command: ['node', '--max-old-space-size=384', 'worker.mjs']
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
-      LLM_MODEL:
-      LLM_RPM:
-      AZURE_RESOURCE_NAME:
-      AZURE_API_KEY:
-      OLLAMA_BASE_URL:
-      STORAGE_DRIVER:
-      AZURE_STORAGE_ACCOUNT:
-      AZURE_STORAGE_KEY:
-      AZURE_STORAGE_CONTAINER:
-    volumes:
-      - resume-files:/app/data
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:

@@ -10,7 +10,7 @@ export const migrationsFolder =
 
 /**
  * LLM_MODEL: which model answers, as `<provider>:<model>`, such as
- * `azure:my-deployment` or `ollama:llama3.2`. `fake` by default, which needs
+ * `azure:my-deployment`, `anthropic:claude-opus-5-5` or `ollama:llama3.2`. `fake` by default, which needs
  * no key. Read at run time only; each provider's SDK reads its own key.
  */
 export const llmModel = process.env.LLM_MODEL ?? 'fake'

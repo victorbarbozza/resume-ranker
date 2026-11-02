@@ -13,6 +13,7 @@ import { Compile } from 'typebox/compile'
 import { Create } from 'typebox/value'
 
 import { llmModel, llmRpm } from '@/server/config/env'
+import { FailNowError } from '@/server/shared/queue/fail-now-error'
 import { RetryLaterError } from '@/server/shared/queue/retry-later-error'
 
 import { LLM_PROVIDERS, type LlmSettings, parseLlmSettings } from './config'
@@ -44,6 +45,9 @@ export const llmSettings = (): LlmSettings => {
   settings ??= parseLlmSettings(llmModel, llmRpm, process.env)
   return settings
 }
+
+/** Most tokens one answer may take, thinking included; far above what the prompts need, so a runaway answer stops */
+const MAX_OUTPUT_TOKENS = 16_000
 
 /** When the last call started; in memory, which holds because a single worker runs */
 let lastCallAt = 0
@@ -103,7 +107,10 @@ const retryAfterMs = (headers: Record<string, string> | undefined): number => {
  * JSON throws like any failure, so it spends an attempt. A 429 throws
  * RetryLaterError, which postpones the task without spending one. The SDK
  * never retries on its own: the queue does. Azure is told not to store the
- * request, since it carries resume text.
+ * request, since it carries resume text. Anthropic is asked to hand a request
+ * its model declines to the model it recommends; a decline that stays one,
+ * or a content filter, fails the task at once, since asking again would
+ * decline again.
  */
 export const generateJson = async <Schema extends TSchema>(
   request: JsonRequest<Schema>,
@@ -120,6 +127,7 @@ export const generateJson = async <Schema extends TSchema>(
       system,
       prompt,
       maxRetries: 0,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
       output: Output.object({
         schema: jsonSchema<Static<Schema>>(schema, {
           validate: (value) => {
@@ -134,8 +142,14 @@ export const generateJson = async <Schema extends TSchema>(
           },
         }),
       }),
-      providerOptions: { azure: { store: false } },
+      providerOptions: {
+        azure: { store: false },
+        anthropic: { fallbacks: 'default' },
+      },
     })
+    if (result.finishReason === 'content-filter') {
+      throw new FailNowError('the model declined to answer')
+    }
     return { output: result.output, model: result.response.modelId }
   } catch (error) {
     if (APICallError.isInstance(error) && error.statusCode === 429) {
