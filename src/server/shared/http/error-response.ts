@@ -5,7 +5,7 @@ import { HTTPError } from './http-error'
 
 /**
  * Turns any error into `{ error, message }`. An HTTPError a service threw
- * answers with its own status, code and message; Hono's own errors, such as
+ * answers with its own status, code, message and headers; Hono's own errors, such as
  * malformed JSON, answer with their message; anything else is logged and
  * answers 500 without its message, so internals never reach the client.
  */
@@ -13,7 +13,7 @@ export const errorResponse = (error: Error, c: Context): Response => {
   if (error instanceof HTTPError && error.expose) {
     return Response.json(
       { ...error.errorData, error: error.code, message: error.message },
-      { status: error.statusCode }
+      { status: error.statusCode, headers: error.headers }
     )
   }
   if (error instanceof HTTPException) {

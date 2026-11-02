@@ -20,18 +20,20 @@ const defaultCodes: Record<number, string> = {
  * - `code`: stable code the client can branch on; derived from the status when omitted
  * - `errorData`: extra fields merged into the error body
  * - `expose`: whether the message reaches the client; true below 500 by default
+ * - `headers`: extra response headers, such as Retry-After
  */
 export type HTTPErrorOptions = {
   statusCode?: number
   code?: string
   errorData?: Record<string, unknown>
   expose?: boolean
+  headers?: Record<string, string>
   cause?: unknown
 }
 
 /**
  * Error a service throws to end the request with a given status.
- * `httpHandler` turns it into `{ ...errorData, error: code, message }`.
+ * `errorResponse` turns it into `{ ...errorData, error: code, message }`.
  *
  * @example
  * throw new HTTPError('job not found', { statusCode: 404, code: 'JOB_NOT_FOUND' })
@@ -41,6 +43,7 @@ export class HTTPError extends Error {
   code: string
   errorData: Record<string, unknown>
   expose: boolean
+  headers: Record<string, string>
 
   constructor(message: string, options: HTTPErrorOptions = {}) {
     super(message, { cause: options.cause })
@@ -49,5 +52,6 @@ export class HTTPError extends Error {
     this.code = options.code ?? defaultCodes[this.statusCode] ?? 'ERR_UNKNOWN'
     this.errorData = options.errorData ?? {}
     this.expose = options.expose ?? this.statusCode < 500
+    this.headers = options.headers ?? {}
   }
 }
