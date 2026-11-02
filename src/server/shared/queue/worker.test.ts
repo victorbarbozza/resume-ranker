@@ -147,6 +147,23 @@ describe('runTask', () => {
 })
 
 describe('runWorker', () => {
+  test('a database that is not ready yet fails a round, not the worker', async () => {
+    const schedule = spyOn(
+      tasksRepo,
+      'scheduleRecurring'
+    ).mockRejectedValueOnce(new Error('relation "tasks" does not exist'))
+    const stop = new AbortController()
+    const handlers: TaskHandlers = {
+      'candidate.extract_profile': { run: mock(async () => {}) },
+      'maintenance.cleanup': { run: async () => stop.abort() },
+    }
+
+    await runWorker(handlers, stop.signal)
+
+    expect(schedule.mock.calls.length).toBeGreaterThan(1)
+    schedule.mockRestore()
+  })
+
   test('keeps maintenance scheduled and runs it along with the other tasks', async () => {
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000)
     await rateLimitsRepo.increment('login:203.0.113.7', twoHoursAgo)

@@ -84,22 +84,27 @@ export const runTask = async (
 }
 
 /**
- * Runs the queue until the signal aborts. It first makes sure every recurring
- * task type has a pending run; then each round sends stale tasks back to the
- * queue and runs the next ready task, or waits a poll interval when nothing
- * is ready. A failed round is logged and tried again after the interval. The
- * task in progress always finishes before the worker stops.
+ * Runs the queue until the signal aborts. Until it has worked once, each
+ * round first makes sure every recurring task type has a pending run; then it
+ * sends stale tasks back to the queue and runs the next ready task, or waits
+ * a poll interval when nothing is ready. A failed round is logged and tried
+ * again after the interval, so a database that is down or not migrated yet,
+ * as on a first deploy, stops rounds and never the process. The task in
+ * progress always finishes before the worker stops.
  */
 export const runWorker = async (
   handlers: TaskHandlers,
   signal: AbortSignal
 ): Promise<void> => {
-  for (const type of RECURRING_TASK_TYPES) {
-    await tasksRepo.scheduleRecurring(type, 0)
-  }
-
+  let scheduled = false
   while (!signal.aborted) {
     try {
+      if (!scheduled) {
+        for (const type of RECURRING_TASK_TYPES) {
+          await tasksRepo.scheduleRecurring(type, 0)
+        }
+        scheduled = true
+      }
       await tasksRepo.recoverStale(LOCK_TIMEOUT_MS)
 
       const task = await tasksRepo.claimNext()
