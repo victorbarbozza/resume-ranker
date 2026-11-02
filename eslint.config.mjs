@@ -1,8 +1,11 @@
+import js from '@eslint/js'
 import { defineConfig, globalIgnores } from 'eslint/config'
-import nextVitals from 'eslint-config-next/core-web-vitals'
-import nextTypescript from 'eslint-config-next/typescript'
 import prettier from 'eslint-config-prettier/flat'
+import importPlugin from 'eslint-plugin-import'
 import jsdoc from 'eslint-plugin-jsdoc'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+import reactHooks from 'eslint-plugin-react-hooks'
+import tseslint from 'typescript-eslint'
 
 const topLevelDeclarations = [
   'Program > ExportNamedDeclaration[declaration]',
@@ -15,11 +18,15 @@ const topLevelDeclarations = [
 ]
 
 export default defineConfig([
-  ...nextVitals,
-  ...nextTypescript,
+  js.configs.recommended,
+  tseslint.configs.recommended,
+  reactHooks.configs.flat.recommended,
+  jsxA11y.flatConfigs.recommended,
+  { plugins: { import: importPlugin } },
   prettier,
   {
     rules: {
+      'no-control-regex': 'off',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
@@ -42,12 +49,7 @@ export default defineConfig([
     },
   },
   {
-    files: [
-      'src/components/**',
-      'src/hooks/**',
-      'src/services/**',
-      'src/lib/**',
-    ],
+    files: ['src/web/**'],
     rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
@@ -86,8 +88,8 @@ export default defineConfig([
   },
   globalIgnores([
     '.next/**',
-    'out/**',
     'next-env.d.ts',
+    'dist/**',
     'src/server/shared/database/migrations/**',
   ]),
 ])
