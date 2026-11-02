@@ -1,5 +1,14 @@
-/** A process that `bun run dev` starts with its name in front of each log line */
-type DevProcess = { name: string; command: string[]; color: string }
+/**
+ * A process that `bun run dev` starts with its name in front of each log line.
+ *
+ * - `env`: variables set for this process only
+ */
+type DevProcess = {
+  name: string
+  command: string[]
+  color: string
+  env?: Record<string, string>
+}
 
 /** The migration step: the same entry the image runs as the `migrate` service */
 const migrateProcess: DevProcess = {
@@ -8,9 +17,19 @@ const migrateProcess: DevProcess = {
   color: '\x1b[33m',
 }
 
-/** The app processes, with live reload in place of `node server.js` and `node worker.mjs` */
+/**
+ * The app processes, with live reload in place of the image's `node server.mjs`
+ * and `node worker.mjs`: the API on port 3001, and Vite on 3000, which serves
+ * the screen and sends /api to the API.
+ */
 const appProcesses: DevProcess[] = [
-  { name: 'web', command: ['bunx', 'next', 'dev'], color: '\x1b[36m' },
+  {
+    name: 'api',
+    command: ['bun', '--watch', 'src/server.ts'],
+    color: '\x1b[34m',
+    env: { PORT: '3001' },
+  },
+  { name: 'web', command: ['bunx', 'vite'], color: '\x1b[36m' },
   {
     name: 'worker',
     command: ['bun', '--watch', 'src/worker.ts'],
@@ -21,8 +40,8 @@ const appProcesses: DevProcess[] = [
 /** Host port of the compose Postgres, as compose.yaml publishes it */
 const postgresPort = process.env.POSTGRES_PORT ?? '55433'
 
-/** Port of the dev web server; `next dev` reads PORT too */
-const webPort = process.env.PORT ?? '3000'
+/** Port of the screen in development, where Vite listens */
+const webPort = '3000'
 
 /** How long the web server has to answer its health route */
 const HEALTH_TIMEOUT_MS = 60_000
@@ -81,13 +100,13 @@ const prefixLines = async (
 }
 
 /** Starts one process with its output prefixed by its name; `logs` settles once its output is fully written */
-const start = ({ name, command, color }: DevProcess) => {
+const start = ({ name, command, color, env }: DevProcess) => {
   const child = Bun.spawn(command, {
     stdout: 'pipe',
     stderr: 'pipe',
     env: colorful
-      ? { ...process.env, FORCE_COLOR: '1' }
-      : { ...process.env, NO_COLOR: '1' },
+      ? { ...process.env, ...env, FORCE_COLOR: '1' }
+      : { ...process.env, ...env, NO_COLOR: '1' },
   })
   const prefix = paint(`[${name}]`, color)
   const logs = Promise.all([
@@ -153,7 +172,7 @@ const main = async () => {
     fail('Migrations failed, so the app was not started.')
   }
 
-  step('Start web and worker')
+  step('Start api, web and worker')
   const running = appProcesses.map(start)
 
   let stopping = false
