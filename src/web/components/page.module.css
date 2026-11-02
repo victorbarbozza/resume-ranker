@@ -1,0 +1,166 @@
+.page {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 36px 32px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 6px 16px;
+}
+
+.title {
+  font-size: 34px;
+  line-height: 41px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  overflow-wrap: anywhere;
+}
+
+.title:focus {
+  outline: none;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.subtitle {
+  grid-column: 1 / -1;
+  max-width: 640px;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--surface);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+  overflow: clip;
+}
+
+.sectionTitle {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.017em;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.emptyText {
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+.note {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+}
+
+.count {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.skeleton {
+  opacity: 0;
+  animation: appear 200ms ease 300ms forwards;
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+  padding: 0 20px;
+  border-top: 1px solid var(--separator);
+}
+
+.skeletonRow:first-of-type {
+  border-top: 0;
+}
+
+.bar {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--fill);
+  animation: breathe 1.6s ease-in-out 500ms infinite alternate;
+}
+
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes breathe {
+  to {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    opacity: 1;
+    animation: none;
+  }
+
+  .bar {
+    animation: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .page {
+    padding: 8px 16px calc(96px + env(safe-area-inset-bottom));
+    gap: 20px;
+  }
+
+  .header {
+    align-items: center;
+  }
+
+  .title {
+    font-size: 30px;
+    line-height: 36px;
+  }
+
+  .subtitle {
+    font-size: 15px;
+  }
+
+  .sectionTitle {
+    font-size: 20px;
+    line-height: 25px;
+  }
+
+  .panel {
+    border-radius: 12px;
+    box-shadow: none;
+  }
+}
