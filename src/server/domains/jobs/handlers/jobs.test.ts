@@ -152,7 +152,7 @@ describe('DELETE /api/jobs/:id', () => {
   })
 })
 
-describe('POST /api/jobs/:id/analyze', () => {
+describe('POST /api/jobs/:id/retry', () => {
   test('queues a failed analysis again', async () => {
     const job = await createJob()
     await jobsRepo.markAnalysisFailed(job.id, 1)
