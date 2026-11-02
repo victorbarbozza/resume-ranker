@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
+import { createSession } from '@/server/domains/auth/services/sessions'
 import { uploadResumes } from '@/server/domains/candidates/services/upload-resumes'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as jobsRepo from '@/server/shared/database/repositories/jobs'
@@ -34,6 +35,13 @@ export const createUser = async (
   })
   if (!user) throw new Error('the username is taken')
   return user
+}
+
+/** Headers of a signed-in browser: the cookie of a new session */
+export const signedInHeaders = async (): Promise<Record<string, string>> => {
+  const user = await createUser()
+  const token = await createSession(user.id, null)
+  return { Cookie: `session=${token}` }
 }
 
 /** A pending engineering job; override any field */

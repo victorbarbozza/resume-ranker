@@ -9,19 +9,28 @@ import * as resumeFilesRepo from '@/server/shared/database/repositories/resume-f
 import { tasks } from '@/server/shared/database/schema'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import { samplePdf, uniquePdf } from '@/server/test/files'
-import { createCandidate } from '@/server/test/fixtures'
+import { createCandidate, signedInHeaders } from '@/server/test/fixtures'
+
+let signedIn: Record<string, string>
 
 beforeAll(prepareTestDatabase)
-beforeEach(resetDatabase)
+beforeEach(async () => {
+  await resetDatabase()
+  signedIn = await signedInHeaders()
+})
 
 const upload = (files: File[]) => {
   const form = new FormData()
   for (const file of files) form.append('files', file)
-  return api.request('/api/candidates', { method: 'POST', body: form })
+  return api.request('/api/candidates', {
+    method: 'POST',
+    body: form,
+    headers: signedIn,
+  })
 }
 
 const call = (method: string, path: string) =>
-  api.request(`/api/candidates${path}`, { method })
+  api.request(`/api/candidates${path}`, { method, headers: signedIn })
 
 const profileTasks = () =>
   db.select().from(tasks).where(eq(tasks.type, 'candidate.extract_profile'))
@@ -110,11 +119,12 @@ describe('POST /api/candidates', () => {
     const empty = await api.request('/api/candidates', {
       method: 'POST',
       body: new FormData(),
+      headers: signedIn,
     })
     const tooLarge = await api.request('/api/candidates', {
       method: 'POST',
       body: 'x',
-      headers: { 'Content-Length': String(100 * 1024 * 1024) },
+      headers: { ...signedIn, 'Content-Length': String(100 * 1024 * 1024) },
     })
 
     expect(empty.status).toBe(400)

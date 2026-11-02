@@ -11,11 +11,17 @@ import {
 import * as health from '@/server/domains/health/services/health'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import { uniquePdf } from '@/server/test/files'
+import { signedInHeaders } from '@/server/test/fixtures'
 
 import { api } from './api'
 
+let signedIn: Record<string, string>
+
 beforeAll(prepareTestDatabase)
-beforeEach(resetDatabase)
+beforeEach(async () => {
+  await resetDatabase()
+  signedIn = await signedInHeaders()
+})
 
 const consoleError = spyOn(console, 'error').mockImplementation(() => {})
 afterEach(() => consoleError.mockClear())
@@ -24,7 +30,7 @@ const postJob = (body: string, headers: Record<string, string> = {}) =>
   api.request('/api/jobs', {
     method: 'POST',
     body,
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: { ...signedIn, 'Content-Type': 'application/json', ...headers },
   })
 
 describe('api', () => {
@@ -74,7 +80,9 @@ describe('api', () => {
   })
 
   test('an unknown route answers 404 as JSON', async () => {
-    const response = await api.request('/api/nothing-here')
+    const response = await api.request('/api/nothing-here', {
+      headers: signedIn,
+    })
 
     expect(response.status).toBe(404)
     expect((await response.json()).error).toBe('ERR_NOT_FOUND')
@@ -87,6 +95,7 @@ describe('api', () => {
     const response = await api.request('/api/candidates', {
       method: 'POST',
       body: form,
+      headers: signedIn,
     })
 
     expect(response.status).toBe(400)
@@ -101,6 +110,7 @@ describe('api', () => {
     const response = await api.request('/api/candidates', {
       method: 'POST',
       body: form,
+      headers: signedIn,
     })
 
     expect(response.status).toBe(202)
