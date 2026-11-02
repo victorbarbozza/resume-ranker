@@ -14,5 +14,13 @@ export default defineConfig({
     strictPort: true,
     proxy: { '/api': 'http://localhost:3001' },
   },
-  build: { outDir: '../../dist/web', emptyOutDir: true },
+  build: {
+    outDir: '../../dist/web',
+    emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: { groups: [{ name: 'vendor', test: /node_modules/ }] },
+      },
+    },
+  },
 })
