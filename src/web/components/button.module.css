@@ -1,0 +1,134 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    transform 300ms var(--spring),
+    background-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.button:disabled {
+  cursor: default;
+}
+
+.regular {
+  height: 34px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.small {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.large {
+  height: 50px;
+  padding: 0 20px;
+  font-size: 17px;
+  border-radius: 12px;
+}
+
+.primary {
+  background: var(--action);
+  color: #ffffff;
+}
+
+.primary:disabled {
+  background: var(--fill);
+  color: #8a94aa;
+}
+
+.secondary {
+  background: var(--fill);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.tinted {
+  background: var(--action-tint);
+  color: var(--link);
+}
+
+.destructive {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.plain {
+  background: transparent;
+  color: var(--link);
+  font-weight: 500;
+  padding: 0 8px;
+}
+
+.plainDestructive {
+  background: transparent;
+  color: var(--danger);
+  font-weight: 500;
+  padding: 0 8px;
+}
+
+.secondary:disabled,
+.tinted:disabled,
+.destructive:disabled,
+.plain:disabled,
+.plainDestructive:disabled {
+  opacity: 0.45;
+}
+
+@media (hover: hover) {
+  .primary:hover:not(:disabled) {
+    background: var(--action-hover);
+  }
+
+  .secondary:hover:not(:disabled) {
+    background: var(--fill-strong);
+  }
+
+  .tinted:hover:not(:disabled) {
+    background: rgba(0, 113, 227, 0.15);
+  }
+
+  .destructive:hover:not(:disabled),
+  .plainDestructive:hover:not(:disabled) {
+    background: rgba(215, 0, 21, 0.12);
+  }
+
+  .plain:hover:not(:disabled) {
+    background: var(--action-tint);
+  }
+}
+
+.button:active:not(:disabled):not([aria-busy='true']) {
+  transform: scale(0.97);
+  transition-duration: 80ms, 0ms, 0ms;
+}
+
+.primary:active:not(:disabled) {
+  background: var(--action-pressed);
+}
+
+.secondary:active:not(:disabled) {
+  background: var(--fill-pressed);
+}
+
+.full {
+  width: 100%;
+}
+
+.icon {
+  width: 34px;
+  padding: 0;
+}
+
+.small.icon {
+  width: 28px;
+}

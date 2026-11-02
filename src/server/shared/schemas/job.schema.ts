@@ -1,0 +1,52 @@
+import { type Static, Type } from 'typebox'
+
+import { generatedBySchema } from '@/server/shared/schemas/generated-by.schema'
+import { AREAS } from '@/shared/areas'
+import {
+  JOB_DESCRIPTION_MAX_LENGTH,
+  JOB_TITLE_MAX_LENGTH,
+} from '@/shared/limits'
+
+/** Lifecycle of a job's analysis: pending, then ready or failed */
+export const JOB_STATUSES = ['pending', 'ready', 'failed'] as const
+/** One of JOB_STATUSES */
+export type JobStatus = (typeof JOB_STATUSES)[number]
+
+/** Requirements the LLM extracts from a job description */
+export const jobRequirementsSchema = Type.Object(
+  {
+    mustHave: Type.Array(Type.String(), {
+      description:
+        'What the job states as required, one requirement per item, such as "5+ years of Node.js"',
+    }),
+    niceToHave: Type.Array(Type.String(), {
+      description:
+        'What the job marks as a plus, preferred or desirable, one per item',
+    }),
+  },
+  { additionalProperties: false }
+)
+
+/** Requirements as the LLM extracts them */
+export type IJobRequirements = Static<typeof jobRequirementsSchema>
+
+/**
+ * A job as the API returns it.
+ *
+ * - `requirements`: null until the job.analyze task finishes
+ */
+export const jobSchema = Type.Object({
+  id: Type.String({ format: 'uuid' }),
+  title: Type.String({ maxLength: JOB_TITLE_MAX_LENGTH }),
+  description: Type.String({ maxLength: JOB_DESCRIPTION_MAX_LENGTH }),
+  area: Type.Enum(AREAS),
+  requirements: Type.Union([jobRequirementsSchema, Type.Null()]),
+  requirementsGeneratedBy: Type.Union([generatedBySchema, Type.Null()]),
+  status: Type.Enum(JOB_STATUSES),
+  version: Type.Integer({ minimum: 1 }),
+  createdAt: Type.String({ format: 'date-time' }),
+  updatedAt: Type.String({ format: 'date-time' }),
+})
+
+/** A job as the API returns it */
+export type IJob = Static<typeof jobSchema>

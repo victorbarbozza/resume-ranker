@@ -1,0 +1,90 @@
+import js from '@eslint/js'
+import { defineConfig, globalIgnores } from 'eslint/config'
+import prettier from 'eslint-config-prettier/flat'
+import importPlugin from 'eslint-plugin-import'
+import jsdoc from 'eslint-plugin-jsdoc'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+import reactHooks from 'eslint-plugin-react-hooks'
+import tseslint from 'typescript-eslint'
+
+const topLevelDeclarations = [
+  'Program > ExportNamedDeclaration[declaration]',
+  'Program > ExportDefaultDeclaration',
+  'Program > FunctionDeclaration',
+  'Program > VariableDeclaration',
+  'Program > ClassDeclaration',
+  'Program > TSTypeAliasDeclaration',
+  'Program > TSInterfaceDeclaration',
+]
+
+export default defineConfig([
+  js.configs.recommended,
+  tseslint.configs.recommended,
+  reactHooks.configs.flat.recommended,
+  jsxA11y.flatConfigs.recommended,
+  { plugins: { import: importPlugin } },
+  prettier,
+  {
+    rules: {
+      'no-control-regex': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      'import/order': [
+        'error',
+        {
+          groups: [
+            'builtin',
+            'external',
+            'internal',
+            ['parent', 'sibling', 'index'],
+          ],
+          pathGroups: [{ pattern: '@/**', group: 'internal' }],
+          pathGroupsExcludedImportTypes: ['builtin'],
+          'newlines-between': 'always',
+          alphabetize: { order: 'asc', caseInsensitive: true },
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/web/**'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/server/**'],
+              allowTypeImports: true,
+              message:
+                'Client code can import types from src/server, never modules.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts'],
+    ignores: ['src/**/*.test.ts'],
+    plugins: { jsdoc },
+    rules: {
+      'jsdoc/require-jsdoc': [
+        'error',
+        {
+          require: {
+            FunctionDeclaration: false,
+            ArrowFunctionExpression: false,
+            FunctionExpression: false,
+            ClassDeclaration: false,
+            MethodDefinition: false,
+          },
+          contexts: topLevelDeclarations,
+        },
+      ],
+    },
+  },
+  globalIgnores(['dist/**', 'src/server/shared/database/migrations/**']),
+])

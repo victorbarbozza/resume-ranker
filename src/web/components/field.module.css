@@ -1,0 +1,77 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-secondary);
+}
+
+.counter,
+.hint {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+}
+
+.control {
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-field);
+  background: var(--surface-sunken);
+  box-shadow: 0 0 0 1px rgba(2, 17, 56, 0.06) inset;
+  color: var(--ink);
+  font-size: 15px;
+  transition:
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.control:focus {
+  outline: none;
+  background: var(--surface);
+  box-shadow: var(--ring);
+}
+
+.control[aria-invalid='true'] {
+  box-shadow: 0 0 0 1.5px var(--danger) inset;
+}
+
+.input {
+  height: 40px;
+  padding: 0 12px;
+}
+
+.textarea {
+  padding: 12px;
+  line-height: 22px;
+  resize: vertical;
+}
+
+.error {
+  display: flex;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--danger);
+}
+
+@media (max-width: 767px) {
+  .control {
+    font-size: 17px;
+  }
+
+  .input {
+    height: 46px;
+  }
+}

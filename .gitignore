@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+
+*.tsbuildinfo
+
+# env files
+.env
+.env*.local
+
+# misc
+coverage/
+dist/
+.DS_Store
+/data/
