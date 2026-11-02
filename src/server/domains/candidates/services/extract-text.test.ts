@@ -53,7 +53,21 @@ describe('extractResumeText', () => {
     expect(bomb.byteLength).toBeLessThan(200_000)
     await expect(
       extractResumeText(RESUME_MIME_TYPES.docx, bomb)
-    ).rejects.toThrow('the DOCX unzips to more than 50 MB')
+    ).rejects.toThrow('the DOCX unzips to more than 10 MB')
+  })
+
+  test('a zip whose directory points outside the file is damaged', async () => {
+    const zip = zipOf('word/document.xml', new TextEncoder().encode('<w/>'))
+    const broken = new Uint8Array(zip)
+    new DataView(broken.buffer).setUint32(
+      broken.byteLength - 6,
+      0xfffffff0,
+      true
+    )
+
+    await expect(
+      extractResumeText(RESUME_MIME_TYPES.docx, broken)
+    ).rejects.toThrow('the DOCX is damaged')
   })
 
   test('a file that is not a zip fails as a DOCX', async () => {
