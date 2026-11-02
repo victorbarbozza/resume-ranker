@@ -1,7 +1,7 @@
 import * as storage from '@pulumi/azure-native/storage'
-import type * as pulumi from '@pulumi/pulumi'
+import * as pulumi from '@pulumi/pulumi'
 
-/** Where the app keeps uploaded resumes, and the key it reads them with */
+/** Where the app keeps uploaded resumes, and the key it reads them with, kept encrypted in the stack */
 export type Files = {
   accountName: pulumi.Output<string>
   containerName: pulumi.Output<string>
@@ -37,11 +37,13 @@ export const createFiles = (
     },
     { protect: true }
   )
-  const key = storage
-    .listStorageAccountKeysOutput({
-      resourceGroupName,
-      accountName: account.name,
-    })
-    .apply((result) => result.keys[0].value)
+  const key = pulumi.secret(
+    storage
+      .listStorageAccountKeysOutput({
+        resourceGroupName,
+        accountName: account.name,
+      })
+      .apply((result) => result.keys[0].value)
+  )
   return { accountName: account.name, containerName: container.name, key }
 }

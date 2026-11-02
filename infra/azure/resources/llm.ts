@@ -1,9 +1,9 @@
 import * as cognitiveservices from '@pulumi/azure-native/cognitiveservices'
-import type * as pulumi from '@pulumi/pulumi'
+import * as pulumi from '@pulumi/pulumi'
 
 import type { Settings } from './settings'
 
-/** What the app needs to call the model: `LLM_MODEL=azure:<deployment>`, the resource and its key */
+/** What the app needs to call the model: `LLM_MODEL=azure:<deployment>`, the resource and its key, kept encrypted in the stack */
 export type Llm = {
   resourceName: pulumi.Output<string>
   deploymentName: pulumi.Output<string>
@@ -40,8 +40,17 @@ export const createLlm = (
     },
     sku: { name: 'GlobalStandard', capacity: settings.openaiCapacity },
   })
-  const key = cognitiveservices
-    .listAccountKeysOutput({ resourceGroupName, accountName: account.name })
-    .apply((keys) => keys.key1 ?? '')
+  const key = pulumi.secret(
+    cognitiveservices
+      .listAccountKeysOutput({ resourceGroupName, accountName: account.name })
+      .apply((keys) => {
+        if (!keys.key1) {
+          throw new Error(
+            'Azure OpenAI returned no key: is local auth disabled?'
+          )
+        }
+        return keys.key1
+      })
+  )
   return { resourceName: account.name, deploymentName: deployment.name, key }
 }
