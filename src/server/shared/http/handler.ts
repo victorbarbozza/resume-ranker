@@ -2,6 +2,7 @@ import type { Static, TSchema } from 'typebox'
 import { Compile } from 'typebox/compile'
 
 import { HTTPError } from './http-error'
+import type { UploadedFile } from './uploaded-file'
 
 /** Request data handed to a handler: one plain object, validated as a whole */
 export type HttpEvent = {
@@ -18,17 +19,65 @@ type RouteContext = { params: Promise<Record<string, string | string[]>> }
  *
  * - `eventSchema`: validates the whole event before the handler runs, and gives the handler its event type; a mismatch answers 400. A route without input passes `Type.Object({})`
  * - `successStatusCode`: status of a successful response; 204 sends no body
+ * - `maxBodyBytes`: largest body accepted, checked against Content-Length before the body is read; over it answers 413, and a request without Content-Length answers 411
  */
 export type HttpHandlerOptions<Schema extends TSchema> = {
   eventSchema: Schema
   successStatusCode?: number
+  maxBodyBytes?: number
 }
 
 /** Methods whose requests carry no body */
 const methodsWithoutBody = new Set(['GET', 'HEAD'])
 
+/** Refuses a body over the limit from its Content-Length, before reading it */
+const checkBodySize = (request: Request, maxBytes: number) => {
+  const length = request.headers.get('content-length')
+  if (length === null) {
+    throw new HTTPError('the request must state its size in Content-Length', {
+      statusCode: 411,
+      code: 'LENGTH_REQUIRED',
+    })
+  }
+  if (Number(length) > maxBytes) {
+    throw new HTTPError(
+      `the request is over ${Math.round(maxBytes / 1024 / 1024)} MB`,
+      { statusCode: 413, code: 'PAYLOAD_TOO_LARGE' }
+    )
+  }
+}
+
+/** Reads a multipart body. Every field is a list, since a field can repeat, and every file comes with its bytes; a file sent without a name is `unnamed` */
+const parseMultipart = async (
+  request: Request
+): Promise<Record<string, (string | UploadedFile)[]>> => {
+  let form: FormData
+  try {
+    form = await request.formData()
+  } catch {
+    throw new HTTPError('request body is not valid multipart', {
+      statusCode: 400,
+      code: 'INVALID_MULTIPART',
+    })
+  }
+
+  const body: Record<string, (string | UploadedFile)[]> = {}
+  for (const [field, value] of form) {
+    const item =
+      typeof value === 'string'
+        ? value
+        : {
+            name: value.name || 'unnamed',
+            type: value.type,
+            bytes: new Uint8Array(await value.arrayBuffer()),
+          }
+    body[field] = [...(body[field] ?? []), item]
+  }
+  return body
+}
+
 /** Parses the JSON body; an empty body is undefined and malformed JSON answers 400 */
-const parseBody = async (request: Request): Promise<unknown> => {
+const parseJson = async (request: Request): Promise<unknown> => {
   const text = await request.text()
   if (!text) return undefined
   try {
@@ -55,7 +104,12 @@ const buildEvent = async (
   if (Object.keys(query).length > 0) event.queryStringParameters = query
 
   if (!methodsWithoutBody.has(request.method)) {
-    const body = await parseBody(request)
+    const multipart = request.headers
+      .get('content-type')
+      ?.startsWith('multipart/form-data')
+    const body = multipart
+      ? await parseMultipart(request)
+      : await parseJson(request)
     if (body !== undefined) event.body = body
   }
 
@@ -83,7 +137,7 @@ const errorResponse = (error: unknown): Response => {
 /**
  * Turns a handler into a Next.js route handler.
  *
- * Builds the event from the request (body, path and query parameters),
+ * Builds the event from the request (a JSON or multipart body, path and query parameters),
  * validates it against `eventSchema`, answers with the handler's result as
  * JSON and maps any error to `{ error, message }`. The handler's event type
  * comes from the schema, so the two cannot disagree.
@@ -100,6 +154,9 @@ export const httpHandler = <Schema extends TSchema, Output>(
     context?: RouteContext
   ): Promise<Response> => {
     try {
+      if (options.maxBodyBytes !== undefined) {
+        checkBodySize(request, options.maxBodyBytes)
+      }
       const event = await buildEvent(request, context)
 
       if (!validator.Check(event)) {
