@@ -17,11 +17,16 @@ import { RetryLaterError } from '@/server/shared/queue/retry-later-error'
 
 import { LLM_PROVIDERS, type LlmSettings, parseLlmSettings } from './config'
 
-/** What a task asks the LLM: instructions, the data, and the shape of the answer */
+/**
+ * What a task asks the LLM: instructions, the data, and the shape of the answer.
+ *
+ * - `fake`: what the fake model answers; placeholder values that match the schema when it is left out
+ */
 export type JsonRequest<Schema extends TSchema> = {
   system: string
   prompt: string
   schema: Schema
+  fake?: Static<Schema>
 }
 
 /**
@@ -73,10 +78,13 @@ export const fixedAnswerModel = (
     },
   })
 
-/** The model the settings point to; the fake one answers placeholder values that match the schema */
-const createModel = (settings: LlmSettings, schema: TSchema): LanguageModel =>
+/** The model the settings point to; the fake one answers the request's fake answer, or placeholder values that match the schema */
+const createModel = <Schema extends TSchema>(
+  settings: LlmSettings,
+  request: JsonRequest<Schema>
+): LanguageModel =>
   settings.provider === 'fake'
-    ? fixedAnswerModel(JSON.stringify(Create(schema)))
+    ? fixedAnswerModel(JSON.stringify(request.fake ?? Create(request.schema)))
     : LLM_PROVIDERS[settings.provider].model(settings.modelId)
 
 /** How long a 429 asks to wait: `retry-after-ms`, then `retry-after` in seconds, else a minute */
@@ -98,9 +106,10 @@ const retryAfterMs = (headers: Record<string, string> | undefined): number => {
  * request, since it carries resume text.
  */
 export const generateJson = async <Schema extends TSchema>(
-  { system, prompt, schema }: JsonRequest<Schema>,
-  model: LanguageModel = createModel(llmSettings(), schema)
+  request: JsonRequest<Schema>,
+  model: LanguageModel = createModel(llmSettings(), request)
 ): Promise<JsonResult<Static<Schema>>> => {
+  const { system, prompt, schema } = request
   const validator = Compile(schema)
   const { rpm } = llmSettings()
   await waitForTurn(rpm ? 60_000 / rpm : 0)

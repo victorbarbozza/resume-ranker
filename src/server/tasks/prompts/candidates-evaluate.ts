@@ -116,4 +116,14 @@ export const evaluatePrompt: PromptDefinition<
     return `${dataBlock('job', describeJob(job))}\n\n<candidates>\n${blocks.join('\n')}\n</candidates>`
   },
   task: 'Score every candidate above against the job.',
+  fake: ({ candidates }) => ({
+    results: candidates.map(({ id }) => ({
+      candidateId: id,
+      strengths: [],
+      gaps: [],
+      summary:
+        'Placeholder from the fake model: set LLM_MODEL to rank for real.',
+      score: 0,
+    })),
+  }),
 }
