@@ -31,3 +31,8 @@ export const port = Number(process.env.PORT ?? 3000)
 
 /** WEB_DIR: the folder of the built screen, which the server serves next to the API; unset in development, where Vite serves it */
 export const webDir = process.env.WEB_DIR
+
+/** RANKING_MAX_CANDIDATES: most candidates one ranking of a whole area sends to the LLM, newest first */
+export const rankingMaxCandidates = Number(
+  process.env.RANKING_MAX_CANDIDATES ?? 50
+)
