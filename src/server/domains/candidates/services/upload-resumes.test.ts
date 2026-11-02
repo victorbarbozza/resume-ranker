@@ -22,15 +22,13 @@ beforeEach(resetDatabase)
 const consoleError = spyOn(console, 'error').mockImplementation(() => {})
 afterEach(() => consoleError.mockClear())
 
-const resume = () => ({ name: 'resume.pdf', type: '', bytes: uniquePdf() })
+const resume = () => new File([uniquePdf()], 'resume.pdf')
 
 describe('uploadResumes', () => {
   test('five uploads of one file at the same time create one candidate', async () => {
     const batches = await Promise.all(
       Array.from({ length: 5 }, () =>
-        uploadResumes([
-          { name: 'ana.pdf', type: '', bytes: new Uint8Array(samplePdf) },
-        ])
+        uploadResumes([new File([samplePdf], 'ana.pdf')])
       )
     )
 

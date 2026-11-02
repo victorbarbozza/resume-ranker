@@ -71,12 +71,10 @@ export const createReadyCandidate = async (input: {
 
 /** A pending candidate sent through the real upload, so its file is stored and its profile queued; returns its id */
 export const uploadResume = async (
-  bytes: Uint8Array,
+  bytes: Uint8Array<ArrayBuffer>,
   name = 'resume.pdf'
 ): Promise<string> => {
-  const [result] = await uploadResumes([
-    { name, type: '', bytes: new Uint8Array(bytes) },
-  ])
+  const [result] = await uploadResumes([new File([bytes], name)])
   if (result.status === 'rejected') throw new Error(result.error)
   return result.candidateId
 }

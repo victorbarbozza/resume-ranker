@@ -5,7 +5,6 @@ import { putFile } from '@/server/shared/connectors/storage'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as resumeFilesRepo from '@/server/shared/database/repositories/resume-files'
 import * as tasksRepo from '@/server/shared/database/repositories/tasks'
-import type { UploadedFile } from '@/server/shared/http/uploaded-file'
 import {
   FILE_NAME_MAX_LENGTH,
   RESUME_FILE_MAX_BYTES,
@@ -30,9 +29,10 @@ export type UploadResult =
  * record and task go in one transaction. A live candidate with the same file,
  * from an earlier upload or one running now, makes this file a duplicate.
  */
-const uploadResume = async (file: UploadedFile): Promise<UploadResult> => {
-  const fileName = file.name.slice(0, FILE_NAME_MAX_LENGTH)
-  const sizeBytes = file.bytes.byteLength
+const uploadResume = async (file: File): Promise<UploadResult> => {
+  const fileName = (file.name || 'unnamed').slice(0, FILE_NAME_MAX_LENGTH)
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const sizeBytes = bytes.byteLength
   if (sizeBytes === 0 || sizeBytes > RESUME_FILE_MAX_BYTES) {
     return {
       fileName,
@@ -40,7 +40,7 @@ const uploadResume = async (file: UploadedFile): Promise<UploadResult> => {
       error: 'the file must have between 1 byte and 2 MB',
     }
   }
-  const mimeType = await detectResumeType(file.bytes)
+  const mimeType = await detectResumeType(bytes)
   if (!mimeType) {
     return {
       fileName,
@@ -49,9 +49,9 @@ const uploadResume = async (file: UploadedFile): Promise<UploadResult> => {
     }
   }
 
-  const contentHash = createHash('sha256').update(file.bytes).digest('hex')
+  const contentHash = createHash('sha256').update(bytes).digest('hex')
   const storageKey = `resumes:${contentHash}`
-  await putFile(storageKey, file.bytes)
+  await putFile(storageKey, bytes)
 
   const created = await db.transaction(async (tx) => {
     const candidate = await candidatesRepo.create({ fileName, contentHash }, tx)
@@ -86,9 +86,7 @@ const uploadResume = async (file: UploadedFile): Promise<UploadResult> => {
  * own and the rest go on; sending it again is safe, since a stored file is a
  * duplicate.
  */
-export const uploadResumes = async (
-  files: UploadedFile[]
-): Promise<UploadResult[]> => {
+export const uploadResumes = async (files: File[]): Promise<UploadResult[]> => {
   const results: UploadResult[] = []
   for (const file of files) {
     try {
