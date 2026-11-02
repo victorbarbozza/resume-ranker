@@ -157,6 +157,8 @@ describe('the fake model', () => {
 
     expect(analysis.output).toEqual({ mustHave: [], niceToHave: [] })
     expect(profile.output.areas).toHaveLength(1)
-    expect(scores.output).toEqual({ results: [] })
+    expect(
+      scores.output.results.map((result) => [result.candidateId, result.score])
+    ).toEqual(batch.candidates.map(({ id }) => [id, 0]))
   })
 })

@@ -1,4 +1,4 @@
-import type { TSchema } from 'typebox'
+import type { Static, TSchema } from 'typebox'
 
 import type { JsonRequest } from '@/server/shared/connectors/llm'
 
@@ -11,6 +11,7 @@ import type { JsonRequest } from '@/server/shared/connectors/llm'
  * - `schema`: the shape of the answer; field meanings go in each field's `description`, conclusions last
  * - `data`: the user message for one input, built with dataBlock
  * - `task`: the request, repeated after the data
+ * - `fake`: what the fake model answers for one input, when placeholders from the schema are not enough
  */
 export type PromptDefinition<Input, Schema extends TSchema> = {
   version: string
@@ -18,6 +19,7 @@ export type PromptDefinition<Input, Schema extends TSchema> = {
   schema: Schema
   data: (input: Input) => string
   task: string
+  fake?: (input: Input) => Static<Schema>
 }
 
 /**
@@ -69,4 +71,5 @@ export const buildRequest = <Input, Schema extends TSchema>(
   system: prompt.system,
   prompt: `${prompt.data(input)}\n\n${prompt.task}`,
   schema: prompt.schema,
+  fake: prompt.fake?.(input),
 })

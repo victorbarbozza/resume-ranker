@@ -93,14 +93,14 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 8. Ranking API
 
-- [ ] `POST /api/jobs/:id/evaluations` with `area` scope (every ready candidate of the job's area, up to `RANKING_MAX_CANDIDATES`, 50 by default) or `selected` scope, split into batches of 5; the response says how many the limit left out
-- [ ] `candidates.evaluate` handler: fixed rubric, strengths with evidence, gaps
-- [ ] The handler checks that every candidate sent got exactly one result; an unknown id is ignored and a missing one fails the attempt
-- [ ] `fake` model gives each candidate of a batch a placeholder result (today it answers an empty batch)
-- [ ] Prompt guardrails: resume text delimited as data, output validated against the schema
-- [ ] `GET /api/jobs/:id/evaluations` with progress counts and stale flags (older job version or older prompt version)
-- [ ] A job whose analysis failed can still be ranked against its raw description, with a warning that results are poorer
-- [ ] Integration tests
+- [x] `POST /api/jobs/:id/evaluations` with `area` scope (every ready candidate of the job's area, up to `RANKING_MAX_CANDIDATES`, 50 by default) or `selected` scope, split into batches of 5; the response says how many the limit left out; candidates with a current result are not queued again
+- [x] `candidates.evaluate` handler: fixed rubric, strengths with evidence, gaps
+- [x] The handler checks that every candidate sent got exactly one result; an unknown id is ignored, the first of two results wins, and a missing one fails the attempt
+- [x] `fake` model gives each candidate of a batch a placeholder result with score 0 (a prompt can define its own fake answer)
+- [x] Prompt guardrails: resume text delimited as data, output validated against the schema
+- [x] `GET /api/jobs/:id/evaluations` with progress counts, stale flags (older job version or older prompt version) and other-area flags; deleted candidates are hidden
+- [x] A job whose analysis failed can still be ranked against its raw description, with a warning that results are poorer
+- [x] Integration tests
 
 ## 9. Access control
 

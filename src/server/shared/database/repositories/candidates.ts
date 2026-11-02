@@ -1,4 +1,4 @@
-import { and, arrayContains, desc, eq, isNull } from 'drizzle-orm'
+import { and, arrayContains, desc, eq, inArray, isNull } from 'drizzle-orm'
 
 import { db, type Executor } from '@/server/shared/connectors/postgres'
 import { candidates as candidatesTable } from '@/server/shared/database/schema'
@@ -167,6 +167,22 @@ export const listReadyByArea = async (
     .where(readyInArea(area))
     .orderBy(desc(candidatesTable.createdAt))
     .limit(limit)
+  return rows.map(toCandidate)
+}
+
+/** The live, ready candidates among the ids, for a ranking of hand-picked candidates or a batch the worker scores */
+export const findReadyByIds = async (ids: string[]): Promise<ICandidate[]> => {
+  if (ids.length === 0) return []
+  const rows = await db
+    .select(candidateColumns)
+    .from(candidatesTable)
+    .where(
+      and(
+        isLive,
+        eq(candidatesTable.status, 'ready'),
+        inArray(candidatesTable.id, ids)
+      )
+    )
   return rows.map(toCandidate)
 }
 
