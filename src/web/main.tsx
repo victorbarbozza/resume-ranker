@@ -1,8 +1,10 @@
+import { RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import { App } from './app'
+import './i18n'
 import { Providers } from './providers'
+import { router } from './router'
 import './styles.css'
 
 /** The element of index.html the screen renders into */
@@ -12,7 +14,7 @@ if (!root) throw new Error('index.html has no #root element')
 createRoot(root).render(
   <StrictMode>
     <Providers>
-      <App />
+      <RouterProvider router={router} />
     </Providers>
   </StrictMode>
 )

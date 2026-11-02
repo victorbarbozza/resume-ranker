@@ -1,0 +1,266 @@
+.shell {
+  display: flex;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  flex: none;
+  width: 264px;
+  height: 100dvh;
+  padding: 20px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--material-sidebar);
+  backdrop-filter: var(--material-blur);
+  -webkit-backdrop-filter: var(--material-blur);
+  border-right: 1px solid var(--hairline);
+}
+
+.brand {
+  padding: 6px 10px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 150ms ease;
+}
+
+.item:hover {
+  color: var(--ink);
+  background: rgba(0, 113, 227, 0.06);
+}
+
+.item[aria-current='page'] {
+  background: var(--action-tint);
+}
+
+.item[aria-current='page'] svg {
+  color: var(--action);
+}
+
+.item > svg {
+  flex: none;
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #46536f;
+}
+
+.disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.disabled:hover {
+  background: transparent;
+  color: var(--muted);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.language {
+  padding: 0 2px 6px;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #d5dcea;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.username {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.signOut {
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--link);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.signOut:hover {
+  background: var(--action-tint);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.phoneBar {
+  display: none;
+}
+
+.menu {
+  inset: 52px 16px auto auto;
+  margin: 0;
+  min-width: 240px;
+  padding: 6px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sheet);
+}
+
+.menuHead {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.menuLanguage {
+  padding: 4px 6px 6px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.menuItem {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  font-size: 17px;
+  color: var(--danger);
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 10;
+    width: auto;
+    height: auto;
+    padding: 6px 8px max(8px, env(safe-area-inset-bottom));
+    flex-direction: row;
+    gap: 0;
+    background: var(--material-tabbar);
+    border-right: 0;
+    box-shadow: 0 -0.5px 0 rgba(2, 17, 56, 0.2);
+  }
+
+  .brand,
+  .spacer,
+  .language,
+  .account,
+  .count,
+  .disabled {
+    display: none;
+  }
+
+  .item {
+    flex: 1;
+    height: 48px;
+    padding: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .item:hover,
+  .item[aria-current='page'] {
+    background: transparent;
+  }
+
+  .item[aria-current='page'] {
+    color: var(--link);
+  }
+
+  .item[aria-current='page'] svg {
+    color: var(--link);
+  }
+
+  .itemLabel {
+    flex: none;
+  }
+
+  .item svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .phoneBar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    height: 48px;
+    padding: 0 8px;
+  }
+
+  .accountButton {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .accountButton .avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+}
