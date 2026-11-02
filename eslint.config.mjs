@@ -86,10 +86,5 @@ export default defineConfig([
       ],
     },
   },
-  globalIgnores([
-    '.next/**',
-    'next-env.d.ts',
-    'dist/**',
-    'src/server/shared/database/migrations/**',
-  ]),
+  globalIgnores(['dist/**', 'src/server/shared/database/migrations/**']),
 ])

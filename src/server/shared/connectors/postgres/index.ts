@@ -5,22 +5,11 @@ import postgres from 'postgres'
 import { databaseUrl } from '@/server/config/env'
 import * as schema from '@/server/shared/database/schema'
 
-/** globalThis with a slot for the pool, kept across `next dev` reloads */
-const globalForPostgres = globalThis as typeof globalThis & {
-  postgresClient?: ReturnType<typeof postgres>
-}
-
 /**
- * One connection pool per process. `next dev` re-evaluates modules on every
- * change, so outside production the pool is kept on globalThis. Notices are
- * dropped: they are informational ("already exists, skipping").
+ * One connection pool per process. Notices are dropped: they are
+ * informational ("already exists, skipping").
  */
-const client =
-  globalForPostgres.postgresClient ??
-  postgres(databaseUrl, { max: 5, onnotice: () => {} })
-if (process.env.NODE_ENV !== 'production') {
-  globalForPostgres.postgresClient = client
-}
+const client = postgres(databaseUrl, { max: 5, onnotice: () => {} })
 
 /** Drizzle client for the whole server, typed with every table */
 export const db = drizzle(client, { schema })

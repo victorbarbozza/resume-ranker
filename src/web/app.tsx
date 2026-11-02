@@ -1,5 +1,5 @@
-/** Landing page of the app */
-export default function HomePage() {
+/** The screen; its pages arrive with the frontend phase */
+export function App() {
   return (
     <main className="page">
       <h1>Resume Ranker</h1>
