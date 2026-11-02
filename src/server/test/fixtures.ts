@@ -3,11 +3,13 @@ import { randomBytes } from 'node:crypto'
 import { uploadResumes } from '@/server/domains/candidates/services/upload-resumes'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as jobsRepo from '@/server/shared/database/repositories/jobs'
+import * as usersRepo from '@/server/shared/database/repositories/users'
 import type {
   ICandidate,
   ICandidateProfile,
 } from '@/server/shared/schemas/candidate.schema'
 import type { IGeneratedBy } from '@/server/shared/schemas/generated-by.schema'
+import type { IUser } from '@/server/shared/schemas/user.schema'
 import type { Area } from '@/shared/areas'
 
 /** A random hex string shaped like a sha256 file hash */
@@ -17,6 +19,21 @@ export const randomHash = () => randomBytes(32).toString('hex')
 export const generatedBy: IGeneratedBy = {
   model: 'fake',
   promptVersion: 'test-1',
+}
+
+/**
+ * A user with a unique name; the password hash is a placeholder unless one is
+ * given, so tests that never log in skip scrypt
+ */
+export const createUser = async (
+  passwordHash = 'scrypt$placeholder'
+): Promise<IUser> => {
+  const user = await usersRepo.create({
+    username: `user-${randomHash().slice(0, 8)}`,
+    passwordHash,
+  })
+  if (!user) throw new Error('the username is taken')
+  return user
 }
 
 /** A pending engineering job; override any field */

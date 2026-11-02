@@ -21,13 +21,17 @@ const toUser = (row: UserRow): IUser => ({
   createdAt: row.createdAt.toISOString(),
 })
 
-/** Stores a new user with an already hashed password */
+/** Stores a new user with an already hashed password; undefined when the username is taken */
 export const create = async (input: {
   username: string
   passwordHash: string
-}): Promise<IUser> => {
-  const [row] = await db.insert(usersTable).values(input).returning(userColumns)
-  return toUser(row)
+}): Promise<IUser | undefined> => {
+  const [row] = await db
+    .insert(usersTable)
+    .values(input)
+    .onConflictDoNothing()
+    .returning(userColumns)
+  return row ? toUser(row) : undefined
 }
 
 /** A user by id */
