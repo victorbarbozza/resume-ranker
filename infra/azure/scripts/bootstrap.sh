@@ -65,7 +65,7 @@ read -r CLIENT_ID CLIENT_SECRET < <(az ad sp create-for-rbac --name resume-ranke
   --query "[appId, password]" --output tsv | paste - -)
 assign() {
   for _ in $(seq 1 12); do
-    if [ -n "$(az role assignment list --assignee "$CLIENT_ID" --role "$1" --scope "$2" --query "[0].id" --output tsv)" ]; then
+    if [ -n "$(az role assignment list --assignee "$CLIENT_ID" --role "$1" --scope "$2" --query "[0].id" --output tsv 2>/dev/null)" ]; then
       return 0
     fi
     az role assignment create --assignee "$CLIENT_ID" --role "$1" --scope "$2" --output none 2>/dev/null || sleep 10
