@@ -112,6 +112,29 @@ describe('generateJson', () => {
     expect(error).not.toBeInstanceOf(RetryLaterError)
   })
 
+  test('a declined answer fails the attempt and says so', async () => {
+    const declining = new MockLanguageModelV4({
+      doGenerate: {
+        content: [],
+        finishReason: { unified: 'content-filter', raw: 'refusal' },
+        usage: {
+          inputTokens: {
+            total: 0,
+            noCache: 0,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: { total: 0, text: 0, reasoning: undefined },
+        },
+        warnings: [],
+      },
+    })
+
+    await expect(generateJson(request, declining)).rejects.toThrow(
+      'the model declined to answer'
+    )
+  })
+
   test('the fake provider answers placeholder values that match the schema', async () => {
     const result = await generateJson(request)
 
