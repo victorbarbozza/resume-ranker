@@ -2,7 +2,10 @@ import { randomBytes } from 'node:crypto'
 
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as jobsRepo from '@/server/shared/database/repositories/jobs'
-import type { ICandidateProfile } from '@/server/shared/schemas/candidate.schema'
+import type {
+  ICandidate,
+  ICandidateProfile,
+} from '@/server/shared/schemas/candidate.schema'
 import type { IGeneratedBy } from '@/server/shared/schemas/generated-by.schema'
 import type { Area } from '@/shared/areas'
 
@@ -25,15 +28,17 @@ export const createJob = (overrides: Partial<jobsRepo.CreateJobInput> = {}) =>
   })
 
 /** A pending candidate with a unique file hash; override any field */
-export const createCandidate = (
+export const createCandidate = async (
   overrides: Partial<candidatesRepo.CreateCandidateInput> = {}
-) =>
-  candidatesRepo.create({
+): Promise<ICandidate> => {
+  const candidate = await candidatesRepo.create({
     fileName: 'resume.pdf',
     contentHash: randomHash(),
-    resumeText: 'Backend engineer with 8 years of Node.js.',
     ...overrides,
   })
+  if (!candidate) throw new Error('a live candidate already has this file')
+  return candidate
+}
 
 /** A profile with the given skills and summary */
 export const profileWith = (
@@ -51,12 +56,9 @@ export const profileWith = (
 export const createReadyCandidate = async (input: {
   skills?: string[]
   summary?: string
-  resumeText?: string
   areas?: Area[]
 }): Promise<string> => {
-  const candidate = await createCandidate({
-    resumeText: input.resumeText ?? 'No further details.',
-  })
+  const candidate = await createCandidate()
   await candidatesRepo.saveProfile(candidate.id, {
     name: null,
     profile: profileWith(input.skills ?? [], input.summary),

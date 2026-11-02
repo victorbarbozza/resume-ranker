@@ -11,40 +11,38 @@ import * as resumeFilesRepo from './resume-files'
 beforeAll(prepareTestDatabase)
 beforeEach(resetDatabase)
 
-const content = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x0a])
+const file = {
+  storageKey: 'resumes:abc123',
+  mimeType: 'application/pdf',
+  sizeBytes: 48_000,
+}
 
 describe('resume files repository', () => {
-  test('stores the original bytes exactly', async () => {
+  test('records where the original upload lives', async () => {
     const candidate = await createCandidate()
 
-    await resumeFilesRepo.create(candidate.id, {
-      content,
-      mimeType: 'application/pdf',
-    })
-    const file = await resumeFilesRepo.findByCandidateId(candidate.id)
+    await resumeFilesRepo.create(candidate.id, file)
 
-    expect(file?.mimeType).toBe('application/pdf')
-    expect(file?.sizeBytes).toBe(content.byteLength)
-    expect(file && Buffer.compare(file.content, content)).toBe(0)
+    expect(await resumeFilesRepo.findByCandidateId(candidate.id)).toEqual(file)
   })
 
-  test('the database rejects an empty file', async () => {
+  test('the database rejects an empty file and one over 2 MB', async () => {
     const candidate = await createCandidate()
 
     await expect(
+      resumeFilesRepo.create(candidate.id, { ...file, sizeBytes: 0 })
+    ).rejects.toThrow()
+    await expect(
       resumeFilesRepo.create(candidate.id, {
-        content: Buffer.alloc(0),
-        mimeType: 'text/plain',
+        ...file,
+        sizeBytes: 2 * 1024 * 1024 + 1,
       })
     ).rejects.toThrow()
   })
 
   test('is removed when its candidate row is removed', async () => {
     const candidate = await createCandidate()
-    await resumeFilesRepo.create(candidate.id, {
-      content,
-      mimeType: 'application/pdf',
-    })
+    await resumeFilesRepo.create(candidate.id, file)
 
     await db.delete(candidates).where(eq(candidates.id, candidate.id))
 

@@ -23,8 +23,10 @@ export type Seniority = (typeof SENIORITIES)[number]
 export const CANDIDATE_NAME_MAX_LENGTH = 200
 /** Longest file name stored */
 export const FILE_NAME_MAX_LENGTH = 255
-/** Largest resume file accepted: 5 MB */
-export const RESUME_FILE_MAX_BYTES = 5 * 1024 * 1024
+/** Largest resume file accepted: 2 MB */
+export const RESUME_FILE_MAX_BYTES = 2 * 1024 * 1024
+/** Most files one upload request takes; the screen splits a larger selection into several requests */
+export const UPLOAD_MAX_FILES = 20
 
 /** What the LLM extracts from a resume once; rankings read this, not the full text */
 export const candidateProfileSchema = Type.Object(

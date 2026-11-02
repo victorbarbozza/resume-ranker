@@ -35,10 +35,14 @@ describe('candidates repository', () => {
     })
   })
 
-  test('keeps the resume text out of the candidate object', async () => {
-    const candidate = await createCandidate({ resumeText: 'Full resume text' })
+  test('keeps the resume text out of the candidate object, null until it is extracted', async () => {
+    const candidate = await createCandidate()
 
     expect(candidate).not.toHaveProperty('resumeText')
+    expect(await candidatesRepo.findResumeText(candidate.id)).toBeNull()
+
+    await candidatesRepo.saveResumeText(candidate.id, 'Full resume text')
+
     expect(await candidatesRepo.findResumeText(candidate.id)).toBe(
       'Full resume text'
     )
@@ -58,7 +62,9 @@ describe('candidates repository', () => {
     const contentHash = randomHash()
     const first = await createCandidate({ contentHash })
 
-    await expect(createCandidate({ contentHash })).rejects.toThrow()
+    expect(
+      await candidatesRepo.create({ fileName: 'again.pdf', contentHash })
+    ).toBeUndefined()
 
     await candidatesRepo.softDelete(first.id)
     const second = await createCandidate({ contentHash })
