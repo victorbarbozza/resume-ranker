@@ -21,7 +21,11 @@ export type ContainersInput = {
   llm: Llm
 }
 
-/** The app and the migration job, as the release addresses them */
+/**
+ * The app and the migration job, as the release addresses them.
+ *
+ * - `url`: the app's public address; it comes from a configuration that holds secrets, so it is marked plain, or `pulumi stack output` would print [secret]
+ */
 export type Containers = {
   appName: pulumi.Output<string>
   migrateJobName: pulumi.Output<string>
@@ -130,8 +134,8 @@ export const createContainers = ({
     { ignoreChanges: ['template.containers[0].image'] }
   )
 
-  const fqdn = service.configuration.apply(
-    (configuration) => configuration?.ingress?.fqdn
+  const fqdn = pulumi.unsecret(
+    service.configuration.apply((configuration) => configuration?.ingress?.fqdn)
   )
   return {
     appName: service.name,
