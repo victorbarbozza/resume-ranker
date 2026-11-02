@@ -24,6 +24,5 @@ export const extractResumeText = async (
     })
     return value
   }
-  if (mimeType === RESUME_MIME_TYPES.txt) return new TextDecoder().decode(bytes)
   throw new Error(`no text extractor for ${mimeType}`)
 }

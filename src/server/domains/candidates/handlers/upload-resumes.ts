@@ -7,13 +7,16 @@ import {
 
 import { uploadResumesEventSchema } from './upload-resumes.schemas'
 
-/** The largest upload: every file at the limit, plus room for the multipart boundaries */
-const UPLOAD_MAX_BODY_BYTES =
-  UPLOAD_MAX_FILES * RESUME_FILE_MAX_BYTES + 1024 * 1024
-
-/** Stores the files and queues their profiles; answers 202 with what happened to each file */
-export const handler = httpHandler((event) => uploadResumes(event.body.files), {
-  eventSchema: uploadResumesEventSchema,
-  successStatusCode: 202,
-  maxBodyBytes: UPLOAD_MAX_BODY_BYTES,
-})
+/**
+ * Stores the files and queues their profiles; answers 202 with what happened
+ * to each file, in the order they were sent. The body may hold every file at
+ * the limit, plus 1 MB for the multipart boundaries.
+ */
+export const handler = httpHandler(
+  async (event) => ({ results: await uploadResumes(event.body.files) }),
+  {
+    eventSchema: uploadResumesEventSchema,
+    successStatusCode: 202,
+    maxBodyBytes: UPLOAD_MAX_FILES * RESUME_FILE_MAX_BYTES + 1024 * 1024,
+  }
+)

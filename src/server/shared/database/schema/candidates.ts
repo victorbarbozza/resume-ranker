@@ -33,7 +33,7 @@ import {
 /**
  * One resume in the shared base.
  *
- * - `contentHash`: sha256 of the uploaded file, computed in the browser; unique among live candidates, so uploads are idempotent and a deleted candidate does not block a new upload
+ * - `contentHash`: sha256 of the uploaded file, computed by the server; unique among live candidates, so uploads are idempotent and a deleted candidate does not block a new upload
  * - `resumeText`: extracted from the file by the worker, null until then; stored whole and read only by the LLM tasks, and truncation only happens when a prompt is built
  * - `areas`: one or two areas extracted by the LLM; a ranking reads the candidates of the job's area
  */

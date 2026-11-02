@@ -14,90 +14,93 @@ import {
 import { detectResumeType } from './resume-type'
 
 /**
- * What happened to each file of an upload.
+ * What happened to one file of an upload.
  *
  * - `accepted`: stored, with its profile queued
- * - `duplicates`: the same file is already in the base; nothing new was stored
+ * - `duplicate`: a live candidate already has the same file
  * - `rejected`: not stored, with the reason
  */
-export type UploadSummary = {
-  accepted: { fileName: string; candidateId: string }[]
-  duplicates: { fileName: string; candidateId: string }[]
-  rejected: { fileName: string; error: string }[]
-}
+export type UploadResult =
+  | { fileName: string; status: 'accepted' | 'duplicate'; candidateId: string }
+  | { fileName: string; status: 'rejected'; error: string }
 
 /**
- * Stores every file of an upload and queues the profile of each new one. A
- * file is written to the storage first, under a key made from its sha256,
- * then its candidate, file record and task go in one transaction; so the
- * answer only comes once every accepted file is safe, and the slow part, text
- * and LLM, runs in the worker. A file that fails a check is rejected on its
- * own and the others go on.
+ * Stores one file and queues its profile. The file goes to the storage under
+ * its sha256 first, so storing it twice is harmless; then the candidate, file
+ * record and task go in one transaction. A live candidate with the same file,
+ * from an earlier upload or one running now, makes this file a duplicate.
  */
-export const uploadResumes = async (
-  files: UploadedFile[]
-): Promise<UploadSummary> => {
-  const summary: UploadSummary = { accepted: [], duplicates: [], rejected: [] }
-
-  for (const file of files) {
-    const fileName = file.name.slice(0, FILE_NAME_MAX_LENGTH)
-    const sizeBytes = file.bytes.byteLength
-    if (sizeBytes === 0 || sizeBytes > RESUME_FILE_MAX_BYTES) {
-      summary.rejected.push({
-        fileName,
-        error: 'the file must have between 1 byte and 2 MB',
-      })
-      continue
+const uploadResume = async (file: UploadedFile): Promise<UploadResult> => {
+  const fileName = file.name.slice(0, FILE_NAME_MAX_LENGTH)
+  const sizeBytes = file.bytes.byteLength
+  if (sizeBytes === 0 || sizeBytes > RESUME_FILE_MAX_BYTES) {
+    return {
+      fileName,
+      status: 'rejected',
+      error: 'the file must have between 1 byte and 2 MB',
     }
-    const mimeType = detectResumeType(fileName, file.bytes)
-    if (!mimeType) {
-      summary.rejected.push({
-        fileName,
-        error: 'only PDF, DOCX and plain text files are accepted',
-      })
-      continue
-    }
-
-    const contentHash = createHash('sha256').update(file.bytes).digest('hex')
-    const existing = await candidatesRepo.findByContentHash(contentHash)
-    if (existing) {
-      summary.duplicates.push({ fileName, candidateId: existing.id })
-      continue
-    }
-
-    const storageKey = `resumes:${contentHash}`
-    await putFile(storageKey, file.bytes)
-    const candidate = await db.transaction(async (tx) => {
-      const created = await candidatesRepo.create({ fileName, contentHash }, tx)
-      if (created) {
-        await resumeFilesRepo.create(
-          created.id,
-          { storageKey, mimeType, sizeBytes },
-          tx
-        )
-        await tasksRepo.enqueue(
-          'candidate.extract_profile',
-          { candidateId: created.id },
-          tx
-        )
-      }
-      return created
-    })
-
-    if (candidate) {
-      summary.accepted.push({ fileName, candidateId: candidate.id })
-      continue
-    }
-    const winner = await candidatesRepo.findByContentHash(contentHash)
-    if (winner) {
-      summary.duplicates.push({ fileName, candidateId: winner.id })
-    } else {
-      summary.rejected.push({
-        fileName,
-        error: 'the same file was being uploaded and removed; send it again',
-      })
+  }
+  const mimeType = await detectResumeType(file.bytes)
+  if (!mimeType) {
+    return {
+      fileName,
+      status: 'rejected',
+      error: 'only PDF and DOCX files are accepted',
     }
   }
 
-  return summary
+  const contentHash = createHash('sha256').update(file.bytes).digest('hex')
+  const storageKey = `resumes:${contentHash}`
+  await putFile(storageKey, file.bytes)
+
+  const created = await db.transaction(async (tx) => {
+    const candidate = await candidatesRepo.create({ fileName, contentHash }, tx)
+    if (!candidate) return undefined
+    await resumeFilesRepo.create(
+      candidate.id,
+      { storageKey, mimeType, sizeBytes },
+      tx
+    )
+    await tasksRepo.enqueue(
+      'candidate.extract_profile',
+      { candidateId: candidate.id },
+      tx
+    )
+    return candidate
+  })
+  if (created) {
+    return { fileName, status: 'accepted', candidateId: created.id }
+  }
+
+  const existing = await candidatesRepo.findByContentHash(contentHash)
+  if (!existing) {
+    throw new Error('the same file was uploaded and removed at once')
+  }
+  return { fileName, status: 'duplicate', candidateId: existing.id }
+}
+
+/**
+ * Uploads every file in the order it was sent. The answer comes only once
+ * every accepted file is stored; the slow part, text and LLM, runs in the
+ * worker. A file the storage or the database cannot take is rejected on its
+ * own and the rest go on; sending it again is safe, since a stored file is a
+ * duplicate.
+ */
+export const uploadResumes = async (
+  files: UploadedFile[]
+): Promise<UploadResult[]> => {
+  const results: UploadResult[] = []
+  for (const file of files) {
+    try {
+      results.push(await uploadResume(file))
+    } catch (error) {
+      console.error(`✗ upload of ${file.name} failed`, error)
+      results.push({
+        fileName: file.name,
+        status: 'rejected',
+        error: 'the file could not be stored; send it again',
+      })
+    }
+  }
+  return results
 }

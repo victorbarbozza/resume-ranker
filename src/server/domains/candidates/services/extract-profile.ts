@@ -4,6 +4,7 @@ import { generateJson } from '@/server/shared/connectors/llm'
 import { getFile } from '@/server/shared/connectors/storage'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as resumeFilesRepo from '@/server/shared/database/repositories/resume-files'
+import { RESUME_TEXT_MAX_CHARS } from '@/server/shared/schemas/candidate.schema'
 import { candidateProfilePrompt } from '@/server/tasks/prompts/candidate-extract-profile'
 import { buildRequest } from '@/server/tasks/prompts/prompt'
 
@@ -32,10 +33,12 @@ export const extractProfile = async (
     const bytes = await getFile(file.storageKey)
     if (!bytes) {
       throw new Error(
-        `the resume file is not in the storage: ${file.storageKey}`
+        `could not read the resume file from the storage: ${file.storageKey}`
       )
     }
-    resumeText = (await extractResumeText(file.mimeType, bytes)).trim()
+    resumeText = (await extractResumeText(file.mimeType, bytes))
+      .trim()
+      .slice(0, RESUME_TEXT_MAX_CHARS)
     if (!resumeText) {
       throw new Error('the resume has no text; a scanned PDF needs OCR')
     }

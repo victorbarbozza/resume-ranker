@@ -7,7 +7,7 @@ import * as candidatesRepo from '@/server/shared/database/repositories/candidate
 import * as resumeFilesRepo from '@/server/shared/database/repositories/resume-files'
 import { tasks } from '@/server/shared/database/schema'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
-import { samplePdf } from '@/server/test/files'
+import { samplePdf, uniquePdf } from '@/server/test/files'
 import { createCandidate } from '@/server/test/fixtures'
 
 import { handler as deleteCandidate } from './delete-candidate'
@@ -45,25 +45,28 @@ const withId = (id: string) => ({ params: Promise.resolve({ id }) })
 const profileTasks = () =>
   db.select().from(tasks).where(eq(tasks.type, 'candidate.extract_profile'))
 
-const uniqueText = () =>
-  new File([`Resume ${crypto.randomUUID()}`], 'resume.txt', {
-    type: 'text/plain',
-  })
+const uniqueResume = () => new File([uniquePdf()], 'resume.pdf')
 
 describe('POST /api/candidates', () => {
   test('stores each new file, queues its profile and answers 202 at once', async () => {
     const response = await uploadResumes(
-      await upload([new File([samplePdf], 'ana.pdf'), uniqueText()])
+      await upload([new File([samplePdf], 'ana.pdf'), uniqueResume()])
     )
-    const summary = await response.json()
+    const { results } = await response.json()
 
     expect(response.status).toBe(202)
     expect(
-      summary.accepted.map((item: { fileName: string }) => item.fileName)
-    ).toEqual(['ana.pdf', 'resume.txt'])
+      results.map((result: { fileName: string; status: string }) => [
+        result.fileName,
+        result.status,
+      ])
+    ).toEqual([
+      ['ana.pdf', 'accepted'],
+      ['resume.pdf', 'accepted'],
+    ])
     expect(await profileTasks()).toHaveLength(2)
 
-    const [ana] = summary.accepted
+    const [ana] = results
     const file = await resumeFilesRepo.findByCandidateId(ana.candidateId)
     expect(file?.mimeType).toBe('application/pdf')
     expect(await getFile(file?.storageKey ?? '')).toEqual(
@@ -79,7 +82,7 @@ describe('POST /api/candidates', () => {
     const first = await uploadResumes(
       await upload([new File([samplePdf], 'ana.pdf')])
     )
-    const { accepted } = await first.json()
+    const [ana] = (await first.json()).results
 
     const again = await uploadResumes(
       await upload([
@@ -88,9 +91,17 @@ describe('POST /api/candidates', () => {
       ])
     )
 
-    expect((await again.json()).duplicates).toEqual([
-      { fileName: 'ana-copy.pdf', candidateId: accepted[0].candidateId },
-      { fileName: 'ana-again.pdf', candidateId: accepted[0].candidateId },
+    expect((await again.json()).results).toEqual([
+      {
+        fileName: 'ana-copy.pdf',
+        status: 'duplicate',
+        candidateId: ana.candidateId,
+      },
+      {
+        fileName: 'ana-again.pdf',
+        status: 'duplicate',
+        candidateId: ana.candidateId,
+      },
     ])
     expect(await profileTasks()).toHaveLength(1)
   })
@@ -99,21 +110,24 @@ describe('POST /api/candidates', () => {
     const response = await uploadResumes(
       await upload([
         new File([], 'empty.pdf'),
-        new File([new Uint8Array(2 * 1024 * 1024 + 1).fill(0x41)], 'big.txt'),
+        new File([new Uint8Array(2 * 1024 * 1024 + 1).fill(0x41)], 'big.pdf'),
         new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00])], 'photo.pdf'),
-        uniqueText(),
+        uniqueResume(),
       ])
     )
-    const summary = await response.json()
+    const { results } = await response.json()
 
     expect(
-      summary.rejected.map((item: { error: string }) => item.error)
+      results.map((result: { status: string; error?: string }) => [
+        result.status,
+        result.error,
+      ])
     ).toEqual([
-      'the file must have between 1 byte and 2 MB',
-      'the file must have between 1 byte and 2 MB',
-      'only PDF, DOCX and plain text files are accepted',
+      ['rejected', 'the file must have between 1 byte and 2 MB'],
+      ['rejected', 'the file must have between 1 byte and 2 MB'],
+      ['rejected', 'only PDF and DOCX files are accepted'],
+      ['accepted', undefined],
     ])
-    expect(summary.accepted).toHaveLength(1)
   })
 
   test('answers 400 without files and 413 for a body over the limit', async () => {
@@ -180,7 +194,7 @@ describe('DELETE /api/candidates/:id', () => {
     const first = await uploadResumes(
       await upload([new File([samplePdf], 'ana.pdf')])
     )
-    const [ana] = (await first.json()).accepted
+    const [ana] = (await first.json()).results
 
     const removed = await deleteCandidate(
       new Request(url, { method: 'DELETE' }),
@@ -191,6 +205,25 @@ describe('DELETE /api/candidates/:id', () => {
     )
 
     expect(removed.status).toBe(204)
-    expect((await again.json()).accepted).toHaveLength(1)
+    expect((await again.json()).results[0].status).toBe('accepted')
+  })
+})
+
+describe('unknown candidates', () => {
+  test('retry and delete answer 404', async () => {
+    const id = crypto.randomUUID()
+
+    const retried = await retryProfile(
+      new Request(url, { method: 'POST' }),
+      withId(id)
+    )
+    const removed = await deleteCandidate(
+      new Request(url, { method: 'DELETE' }),
+      withId(id)
+    )
+
+    expect(retried.status).toBe(404)
+    expect((await retried.json()).error).toBe('CANDIDATE_NOT_FOUND')
+    expect(removed.status).toBe(404)
   })
 })

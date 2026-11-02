@@ -1,11 +1,10 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
-import { uploadResumes } from '@/server/domains/candidates/services/upload-resumes'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as tasksRepo from '@/server/shared/database/repositories/tasks'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import { samplePdf } from '@/server/test/files'
-import { createCandidate } from '@/server/test/fixtures'
+import { createCandidate, uploadResume } from '@/server/test/fixtures'
 
 import { candidateExtractProfileHandler } from './candidate-extract-profile'
 
@@ -14,10 +13,7 @@ beforeEach(resetDatabase)
 
 describe('candidate.extract_profile handler', () => {
   test('extracts the profile of a valid payload with the configured model', async () => {
-    const { accepted } = await uploadResumes([
-      { name: 'ana.pdf', type: '', bytes: new Uint8Array(samplePdf) },
-    ])
-    const candidateId = accepted[0].candidateId
+    const candidateId = await uploadResume(samplePdf)
     const task = await tasksRepo.enqueue('candidate.extract_profile', {
       candidateId,
     })
