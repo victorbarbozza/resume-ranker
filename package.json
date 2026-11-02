@@ -17,7 +17,7 @@
     "user:create": "bun src/create-user.ts",
     "dev:up": "docker compose up -d --wait postgres",
     "dev:down": "docker compose down",
-    "dev:reset": "docker compose down -v"
+    "dev:reset": "docker compose down -v --remove-orphans && rm -rf data/files"
   },
   "dependencies": {
     "@ai-sdk/azure": "^4.0.114",
