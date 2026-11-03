@@ -1,6 +1,29 @@
 import { Type } from 'typebox'
 
-import { UPLOAD_MAX_FILES } from '@/shared/limits'
+import { CANDIDATE_STATUSES } from '@/server/shared/schemas/candidate.schema'
+import { AREAS } from '@/shared/areas'
+import { DELETE_MAX_CANDIDATES, UPLOAD_MAX_FILES } from '@/shared/limits'
+
+/**
+ * GET /api/candidates: what the list filters by, and where the page starts.
+ *
+ * - `search`: part of the name
+ * - `cursor`: the `nextCursor` of the previous page
+ */
+export const listCandidatesQuery = Type.Object({
+  search: Type.Optional(Type.String({ maxLength: 200 })),
+  area: Type.Optional(Type.Enum(AREAS)),
+  status: Type.Optional(Type.Enum(CANDIDATE_STATUSES)),
+  cursor: Type.Optional(Type.String({ format: 'uuid' })),
+})
+
+/** POST /api/candidates/delete: the candidates to delete */
+export const deleteCandidatesBody = Type.Object({
+  ids: Type.Array(Type.String({ format: 'uuid' }), {
+    minItems: 1,
+    maxItems: DELETE_MAX_CANDIDATES,
+  }),
+})
 
 /** The id in the path of every route of one candidate */
 export const candidateIdParam = Type.Object({

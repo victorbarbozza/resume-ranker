@@ -7,7 +7,7 @@ import { pollInterval, queryClient } from '@/web/lib/query-client'
 /** Every live candidate; asked again while any resume is still being read, faster right after it was added */
 export const candidatesQuery = queryOptions({
   queryKey: ['candidates'],
-  queryFn: () => parseResponse(client.api.candidates.$get()),
+  queryFn: () => parseResponse(client.api.candidates.$get({ query: {} })),
   refetchInterval: (query) => {
     const pendingSince = (query.state.data?.candidates ?? [])
       .filter((candidate) => candidate.status === 'pending')

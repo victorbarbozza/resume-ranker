@@ -1,4 +1,15 @@
-import { and, arrayContains, desc, eq, inArray, isNull } from 'drizzle-orm'
+import {
+  and,
+  arrayContains,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm'
 
 import { db, type Executor } from '@/server/shared/connectors/postgres'
 import { candidates as candidatesTable } from '@/server/shared/database/schema'
@@ -143,14 +154,58 @@ export const saveResumeText = async (
   return rows.length > 0
 }
 
-/** Every live candidate, newest first */
-export const list = async (): Promise<ICandidate[]> => {
+/**
+ * What the list filters by.
+ *
+ * - `search`: part of the name, in any case
+ * - `after`: the id of the last candidate of the previous page; the page holds the ones added before it
+ */
+export type CandidateFilters = {
+  search?: string
+  area?: Area
+  status?: CandidateStatus
+  after?: string
+}
+
+/**
+ * One page of live candidates, newest first, keyset paginated on
+ * `(created_at, id)`: a page never counts or skips rows, so it costs the same
+ * on the first page and on the thousandth. The cursor is the last id, and its
+ * timestamp is read in the database, so no precision is lost on the way.
+ */
+export const listPage = async (
+  filters: CandidateFilters,
+  limit: number
+): Promise<ICandidate[]> => {
+  const search = filters.search?.trim()
+  const conditions = [
+    isLive,
+    search ? ilike(candidatesTable.name, `%${search}%`) : undefined,
+    filters.area
+      ? arrayContains(candidatesTable.areas, [filters.area])
+      : undefined,
+    filters.status ? eq(candidatesTable.status, filters.status) : undefined,
+    filters.after
+      ? sql`(${candidatesTable.createdAt}, ${candidatesTable.id}) < (select c.created_at, c.id from candidates c where c.id = ${filters.after})`
+      : undefined,
+  ]
   const rows = await db
     .select(candidateColumns)
     .from(candidatesTable)
-    .where(isLive)
-    .orderBy(desc(candidatesTable.createdAt))
+    .where(and(...conditions))
+    .orderBy(desc(candidatesTable.createdAt), desc(candidatesTable.id))
+    .limit(limit)
   return rows.map(toCandidate)
+}
+
+/** Whether any live resume could not be read, answered from a partial index without counting */
+export const anyFailed = async (): Promise<boolean> => {
+  const rows = await db
+    .select({ id: candidatesTable.id })
+    .from(candidatesTable)
+    .where(and(eq(candidatesTable.status, 'failed'), isLive))
+    .limit(1)
+  return rows.length > 0
 }
 
 /**
@@ -233,11 +288,13 @@ export const setStatus = async (
 }
 
 /**
- * Sends a failed profile back to pending, for another try. Returns undefined
- * when the candidate is gone or its profile did not fail.
+ * Sends a profile back to pending, to be read again: one that failed, or one
+ * read with a prompt other than `promptVersion`. Returns undefined when the
+ * candidate is gone, is being read, or its profile is current.
  */
-export const reopenFailedProfile = async (
+export const reopenProfile = async (
   id: string,
+  promptVersion: string,
   executor: Executor = db
 ): Promise<ICandidate | undefined> => {
   const [row] = await executor
@@ -247,7 +304,13 @@ export const reopenFailedProfile = async (
       and(
         eq(candidatesTable.id, id),
         isLive,
-        eq(candidatesTable.status, 'failed')
+        or(
+          eq(candidatesTable.status, 'failed'),
+          and(
+            eq(candidatesTable.status, 'ready'),
+            ne(candidatesTable.profilePromptVersion, promptVersion)
+          )
+        )
       )
     )
     .returning(candidateColumns)
@@ -262,4 +325,14 @@ export const softDelete = async (id: string): Promise<boolean> => {
     .where(and(eq(candidatesTable.id, id), isLive))
     .returning({ id: candidatesTable.id })
   return rows.length > 0
+}
+
+/** Hides every live candidate among the ids; returns how many it hid */
+export const softDeleteMany = async (ids: string[]): Promise<number> => {
+  const rows = await db
+    .update(candidatesTable)
+    .set({ deletedAt: new Date() })
+    .where(and(inArray(candidatesTable.id, ids), isLive))
+    .returning({ id: candidatesTable.id })
+  return rows.length
 }

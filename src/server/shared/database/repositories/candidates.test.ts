@@ -97,9 +97,54 @@ describe('candidates repository', () => {
     const deleted = await createCandidate()
     await candidatesRepo.softDelete(deleted.id)
 
-    expect((await candidatesRepo.list()).map((c) => c.id)).toEqual([kept.id])
+    expect(
+      (await candidatesRepo.listPage({}, 50)).map((candidate) => candidate.id)
+    ).toEqual([kept.id])
     expect(await candidatesRepo.findById(deleted.id)).toBeUndefined()
     expect(await candidatesRepo.setStatus(deleted.id, 'failed')).toBe(false)
+  })
+
+  test('searches part of the name, in any case', async () => {
+    const ana = await createReadyCandidate({ name: 'Ana Souza' })
+    await createReadyCandidate({ name: 'Bruno Reis' })
+    const ids = async (search: string) =>
+      (await candidatesRepo.listPage({ search }, 50)).map(
+        (candidate) => candidate.id
+      )
+
+    expect(await ids('souz')).toEqual([ana])
+    expect(await ids('ANA')).toEqual([ana])
+    expect(await ids('carla')).toEqual([])
+  })
+
+  test('filters by area and status', async () => {
+    const data = await createReadyCandidate({ areas: ['data'] })
+    await createReadyCandidate({ areas: ['engineering'] })
+    const failed = await createCandidate()
+    await candidatesRepo.setStatus(failed.id, 'failed')
+    const ids = async (filters: candidatesRepo.CandidateFilters) =>
+      (await candidatesRepo.listPage(filters, 50)).map(
+        (candidate) => candidate.id
+      )
+
+    expect(await ids({ area: 'data' })).toEqual([data])
+    expect(await ids({ status: 'failed' })).toEqual([failed.id])
+    expect(await candidatesRepo.anyFailed()).toBe(true)
+  })
+
+  test('pages newest first after a cursor, without skipping or repeating', async () => {
+    const created = []
+    for (let index = 0; index < 5; index += 1) {
+      created.push((await createCandidate()).id)
+    }
+    const first = await candidatesRepo.listPage({}, 2)
+    const second = await candidatesRepo.listPage({ after: first[1].id }, 2)
+    const third = await candidatesRepo.listPage({ after: second[1].id }, 2)
+
+    expect(
+      [...first, ...second, ...third].map((candidate) => candidate.id)
+    ).toEqual(created.reverse())
+    expect(await candidatesRepo.anyFailed()).toBe(false)
   })
 
   test('the database rejects an unknown area', async () => {
