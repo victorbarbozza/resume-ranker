@@ -138,7 +138,9 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] Least privilege for the CI: a custom role with only the resource types the stack creates, assigned on the app's resource group alone, plus read and write on the state container; the budget lives on the group
 - [x] `deploy.yml` on main: build the amd64 image, push it to GHCR, `pulumi up`, run the migration job with the new image, then move the app to it and wait for `/api/health` (the steps of `bun run dev`)
 - [x] `infra.yml` on PRs that touch `infra/`: typecheck and `pulumi preview`
-- [ ] First deploy: run `bootstrap.sh`, push to main, make the GHCR package public, run the deploy again
+- [x] Custom domain with its managed certificate, imported into the stack so a deploy never unbinds it
+- [x] Throughput: tasks run four at a time, highest priority first (job analysis, then rankings, then resumes); LLM pace of 60 calls a minute on a 100k tokens-per-minute deployment
+- [x] First deploy: `bootstrap.sh`, then a merge to main; the GHCR package inherits the repository's public visibility, so Container Apps pulls it with no credentials
 - [ ] First user created with `az containerapp exec ... --command "node create-user.mjs <username>"`
 
 ## 12. Backups

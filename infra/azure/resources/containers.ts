@@ -2,6 +2,7 @@ import * as app from '@pulumi/azure-native/app'
 import * as pulumi from '@pulumi/pulumi'
 
 import type { Database } from './database'
+import { createDomainCertificate, type Domain } from './domain'
 import type { Files } from './files'
 import type { Llm } from './llm'
 
@@ -13,9 +14,11 @@ const HEALTH = { path: '/api/health', port: 3000 }
 
 /** What the containers run on and connect to */
 export type ContainersInput = {
-  resourceGroupName: pulumi.Input<string>
+  resourceGroupName: string
   names: { environment: string; app: string; migrateJob: string }
   image: string
+  llmRpm: number
+  domain: Domain | undefined
   database: Database
   files: Files
   llm: Llm
@@ -46,6 +49,8 @@ export const createContainers = ({
   resourceGroupName,
   names,
   image,
+  llmRpm,
+  domain,
   database,
   files,
   llm,
@@ -54,6 +59,20 @@ export const createContainers = ({
     resourceGroupName,
     environmentName: names.environment,
   })
+  const customDomains = domain
+    ? [
+        {
+          name: domain.name,
+          certificateId: createDomainCertificate({
+            resourceGroupName,
+            environmentName: names.environment,
+            environment,
+            domain,
+          }),
+          bindingType: app.BindingType.SniEnabled,
+        },
+      ]
+    : undefined
 
   const service = new app.ContainerApp(
     'app',
@@ -68,6 +87,7 @@ export const createContainers = ({
           targetPort: HEALTH.port,
           transport: app.IngressTransportMethod.Auto,
           allowInsecure: false,
+          customDomains,
         },
         secrets: [
           { name: 'database-url', value: database.url },
@@ -89,6 +109,7 @@ export const createContainers = ({
               },
               { name: 'AZURE_RESOURCE_NAME', value: llm.resourceName },
               { name: 'AZURE_API_KEY', secretRef: 'azure-api-key' },
+              { name: 'LLM_RPM', value: String(llmRpm) },
               { name: 'STORAGE_DRIVER', value: 'azure' },
               { name: 'AZURE_STORAGE_ACCOUNT', value: files.accountName },
               { name: 'AZURE_STORAGE_CONTAINER', value: files.containerName },
