@@ -8,7 +8,6 @@ import type { Domain } from './domain'
  * - `openaiLocation`: Azure OpenAI region, apart from the app's, since models reach some regions first
  * - `openaiModel` / `openaiModelVersion`: the model the deployment serves
  * - `openaiCapacity`: thousands of tokens per minute the deployment may take
- * - `llmRpm`: LLM calls per minute the app allows itself, within what the capacity serves
  * - `domain`: from `customDomain` and `customDomainCertificate`, the app's own hostname; none when they are not set
  * - `budgetAmount` / `budgetStart`: monthly budget in USD and the first month it covers (first day of a month)
  * - `image`: from `IMAGE`, the image the app and the migration job are created with; each release replaces it
@@ -19,7 +18,6 @@ export type Settings = {
   openaiModel: string
   openaiModelVersion: string
   openaiCapacity: number
-  llmRpm: number
   domain: Domain | undefined
   budgetAmount: number
   budgetStart: string
@@ -42,7 +40,6 @@ export const readSettings = (): Settings => {
     openaiModel: config.require('openaiModel'),
     openaiModelVersion: config.require('openaiModelVersion'),
     openaiCapacity: config.requireNumber('openaiCapacity'),
-    llmRpm: config.requireNumber('llmRpm'),
     domain: readDomain(config),
     budgetAmount: config.requireNumber('budgetAmount'),
     budgetStart: config.require('budgetStart'),

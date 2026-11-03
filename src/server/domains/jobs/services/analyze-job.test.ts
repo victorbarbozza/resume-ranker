@@ -4,17 +4,14 @@ import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { fixedAnswerModel } from '@/server/shared/connectors/llm'
 import * as jobsRepo from '@/server/shared/database/repositories/jobs'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
-import { createJob } from '@/server/test/fixtures'
+import { createJob, requirementsWith } from '@/server/test/fixtures'
 
 import { analyzeJob } from './analyze-job'
 
 beforeAll(prepareTestDatabase)
 beforeEach(resetDatabase)
 
-const requirements = {
-  mustHave: ['Node.js', 'PostgreSQL'],
-  niceToHave: ['Kafka'],
-}
+const requirements = requirementsWith(['Node.js', 'PostgreSQL'], ['Kafka'])
 
 const answering = (answer: unknown) =>
   fixedAnswerModel(JSON.stringify(answer), 'test-model')
@@ -36,7 +33,7 @@ describe('analyzeJob', () => {
       requirements,
       requirementsGeneratedBy: {
         model: 'test-model',
-        promptVersion: 'job-analyze@2',
+        promptVersion: 'job-analyze@3',
       },
     })
   })

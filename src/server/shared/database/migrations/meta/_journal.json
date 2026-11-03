@@ -36,6 +36,13 @@
       "when": 1793668515617,
       "tag": "0004_candidate_search",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793711180451,
+      "tag": "0005_deterministic_score",
+      "breakpoints": true
     }
   ]
 }

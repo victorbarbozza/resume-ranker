@@ -17,7 +17,6 @@ export type ContainersInput = {
   resourceGroupName: string
   names: { environment: string; app: string; migrateJob: string }
   image: string
-  llmRpm: number
   domain: Domain | undefined
   database: Database
   files: Files
@@ -49,7 +48,6 @@ export const createContainers = ({
   resourceGroupName,
   names,
   image,
-  llmRpm,
   domain,
   database,
   files,
@@ -109,7 +107,6 @@ export const createContainers = ({
               },
               { name: 'AZURE_RESOURCE_NAME', value: llm.resourceName },
               { name: 'AZURE_API_KEY', secretRef: 'azure-api-key' },
-              { name: 'LLM_RPM', value: String(llmRpm) },
               { name: 'STORAGE_DRIVER', value: 'azure' },
               { name: 'AZURE_STORAGE_ACCOUNT', value: files.accountName },
               { name: 'AZURE_STORAGE_CONTAINER', value: files.containerName },

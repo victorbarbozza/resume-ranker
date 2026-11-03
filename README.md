@@ -1,6 +1,6 @@
 # Resume Ranker
 
-Rank candidates for a job opening. Register a job, upload resumes (PDF or DOCX) and get every candidate from the job's area ranked with a score, strengths and gaps.
+Rank candidates for a job opening. Register a job, upload resumes (PDF or DOCX) and get every candidate from the job's area ranked. The LLM checks each requirement against the whole resume and quotes the passage that shows it; the code verifies each quote and computes the score from the verdicts.
 
 > Work in progress. [ROADMAP.md](ROADMAP.md) lists what is done and what comes next.
 
@@ -47,7 +47,7 @@ Both follow the same steps:
 
 The app never changes the schema: it starts only after the migration step exits successfully.
 
-One process serves the API and the screen and works the task queue, so the whole app is one container with one replica. The worker runs up to `WORKER_CONCURRENCY` tasks at once, highest priority first: a job's analysis, then rankings, then reading resumes, so what a person waits for on screen skips the background backlog. The LLM pace is kept in memory and every call reserves its turn, which holds because one process runs; a DOCX is checked to unzip to at most 10 MB before it is read, so a zip bomb fails its task at once instead of filling the memory the API shares. A task that cannot succeed by trying again, such as that file or an answer the LLM declines, is dead on its first attempt.
+One process serves the API and the screen and works the task queue, so the whole app is one container with one replica. The worker runs up to `WORKER_CONCURRENCY` tasks at once, highest priority first: a job's analysis, then rankings, then reading resumes, so what a person waits for on screen skips the background backlog. The worker has no LLM pace of its own: the concurrency caps the calls in flight, and a 429 from the provider postpones the task by the time it asks, without spending an attempt. A DOCX is checked to unzip to at most 10 MB before it is read, so a zip bomb fails its task at once instead of filling the memory the API shares. A task that cannot succeed by trying again, such as that file or an answer the LLM declines, is dead on its first attempt.
 
 ### Signing in
 
@@ -72,7 +72,6 @@ Nothing needs to be configured to run locally: every variable has a default that
 | `APP_PORT`                                                                | `3000`                                                  | compose: host port of the app                                                                              |
 | `TEST_DATABASE_URL`                                                       | `postgres://dev:dev@localhost:55433/resume_ranker_test` | tests (must end in `_test`)                                                                                |
 | `LLM_MODEL`                                                               | `fake`                                                  | app: `<provider>:<model>`, such as `azure:my-deployment`, `anthropic:claude-opus-5-5` or `ollama:llama3.2` |
-| `LLM_RPM`                                                                 | `10` for azure and anthropic, `30` for ollama           | app: LLM calls per minute                                                                                  |
 | `WORKER_CONCURRENCY`                                                      | `4`                                                     | app: tasks the worker runs at the same time                                                                |
 | `AZURE_RESOURCE_NAME` / `AZURE_API_KEY`                                   | none                                                    | app, with an `azure:` model                                                                                |
 | `ANTHROPIC_API_KEY`                                                       | none                                                    | app, with an `anthropic:` model                                                                            |
@@ -99,7 +98,7 @@ bun run dev
 
 A request Claude declines goes to the model Anthropic recommends for it; one that stays declined fails like any other attempt. `LLM_MODEL=ollama:llama3.2` runs a local model instead. The app checks the variables when it starts and refuses to start, naming what is missing. Compose passes the same variables to the app container; from there, an Ollama running on the host is `OLLAMA_BASE_URL=http://host.docker.internal:11434/v1`. Tests always use `fake`.
 
-Each provider is one entry in `src/server/shared/connectors/llm/config.ts`: the package that talks to it, the variables it needs and its default pace. Adding a provider is a package and an entry; no task changes.
+Each provider is one entry in `src/server/shared/connectors/llm/config.ts`: the package that talks to it and the variables it needs. Adding a provider is a package and an entry; no task changes.
 
 ### Uploaded files
 

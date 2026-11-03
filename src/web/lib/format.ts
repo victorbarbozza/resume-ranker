@@ -1,4 +1,5 @@
 import type { ICandidateProfile } from '@/server/shared/schemas/candidate.schema'
+import type { IJobRequirements } from '@/server/shared/schemas/job.schema'
 import type { Area } from '@/shared/areas'
 import { i18n } from '@/web/i18n'
 
@@ -34,6 +35,19 @@ export const timeAgo = (iso: string): string => {
   }
   return relative.format(Math.round(amount), 'year')
 }
+
+/** The general experience a job asks for, such as `5+ years of experience, Senior`; empty when it asks none */
+export const experienceAsked = (
+  asked: IJobRequirements['experience']
+): string =>
+  [
+    asked.minYears === null
+      ? null
+      : i18n.t('common.minYears', { count: asked.minYears }),
+    asked.seniority === null ? null : i18n.t(`seniority.${asked.seniority}`),
+  ]
+    .filter((part) => part !== null)
+    .join(', ')
 
 /** A file size in KB or MB in the screen's language, such as `184 KB` or `1,1 MB` */
 export const fileSize = (bytes: number): string => {

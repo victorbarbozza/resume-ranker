@@ -1,5 +1,3 @@
-import { setTimeout as sleep } from 'node:timers/promises'
-
 import {
   APICallError,
   generateText,
@@ -12,7 +10,7 @@ import type { Static, TSchema } from 'typebox'
 import { Compile } from 'typebox/compile'
 import { Create } from 'typebox/value'
 
-import { llmModel, llmRpm } from '@/server/config/env'
+import { llmModel } from '@/server/config/env'
 import { FailNowError } from '@/server/shared/queue/fail-now-error'
 import { RetryLaterError } from '@/server/shared/queue/retry-later-error'
 
@@ -42,27 +40,12 @@ let settings: LlmSettings | undefined
 
 /** The checked LLM settings; throws an error that names the variable that is wrong */
 export const llmSettings = (): LlmSettings => {
-  settings ??= parseLlmSettings(llmModel, llmRpm, process.env)
+  settings ??= parseLlmSettings(llmModel, process.env)
   return settings
 }
 
 /** Most tokens one answer may take, thinking included; far above what the prompts need, so a runaway answer stops */
 const MAX_OUTPUT_TOKENS = 16_000
-
-/** When the last call started; in memory, which holds because a single worker runs */
-let lastCallAt = 0
-
-/**
- * Takes the next free turn, at least `gapMs` after the one before, then waits
- * for it. The turn is reserved before waiting, so tasks running at the same
- * time queue up one gap apart instead of all calling at once.
- */
-export const waitForTurn = async (gapMs: number): Promise<void> => {
-  const turn = Math.max(Date.now(), lastCallAt + gapMs)
-  lastCallAt = turn
-  const wait = turn - Date.now()
-  if (wait > 0) await sleep(wait)
-}
 
 /** A model that always answers the same text: the fake model, and tests */
 export const fixedAnswerModel = (
@@ -106,7 +89,8 @@ const retryAfterMs = (headers: Record<string, string> | undefined): number => {
 }
 
 /**
- * Asks the LLM for JSON that matches the schema, at the provider's pace.
+ * Asks the LLM for JSON that matches the schema. How many calls run at once
+ * is the worker's concurrency; the provider's 429 answers set the pace.
  *
  * The answer is validated with TypeBox; a mismatch or an answer that is not
  * JSON throws like any failure, so it spends an attempt. A 429 throws
@@ -123,8 +107,6 @@ export const generateJson = async <Schema extends TSchema>(
 ): Promise<JsonResult<Static<Schema>>> => {
   const { system, prompt, schema } = request
   const validator = Compile(schema)
-  const { rpm } = llmSettings()
-  await waitForTurn(rpm ? 60_000 / rpm : 0)
 
   try {
     const result = await generateText({

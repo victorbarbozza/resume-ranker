@@ -1,129 +1,98 @@
-import { Type } from 'typebox'
+import { type Static, Type } from 'typebox'
 
-import type { ICandidateProfile } from '@/server/shared/schemas/candidate.schema'
-import type { IJobRequirements } from '@/server/shared/schemas/job.schema'
+import { VERDICTS } from '@/server/shared/schemas/evaluation.schema'
 
+import { RESUME_PROMPT_MAX_CHARS } from './candidate-extract-profile'
 import { dataBlock, type PromptDefinition, systemMessage } from './prompt'
 
-/** The job a batch is scored against */
-export type EvaluateJob = {
-  title: string
-  description: string
-  requirements: IJobRequirements
-}
-
-/** One candidate of a batch: the profile only, without the name, so the score never sees who it is */
-export type EvaluateCandidate = { id: string; profile: ICandidateProfile }
-
-/** What the candidates.evaluate prompt reads: one job and a batch of candidates */
+/**
+ * What the candidates.evaluate prompt reads: one job, the requirements the
+ * LLM judges, each with the id the code gave it, and one whole resume.
+ */
 export type EvaluateInput = {
-  job: EvaluateJob
-  candidates: EvaluateCandidate[]
+  job: { title: string; description: string }
+  requirements: { id: string; text: string }[]
+  resumeText: string
 }
 
 /**
- * The verdicts of one batch. The score comes last, so it is written after the
- * evidence. The handler checks that every candidate sent has one result.
+ * The verdict on each requirement, with the quote it rests on. There is no
+ * score: the code computes it from the verdicts. The evidence comes before
+ * the verdict, and the summary last, so each conclusion follows its reading.
  */
-export const evaluationBatchSchema = Type.Object(
+export const assessmentsSchema = Type.Object(
   {
-    results: Type.Array(
+    assessments: Type.Array(
       Type.Object(
         {
-          candidateId: Type.String({
-            description: 'The id from the candidate tag',
+          requirementId: Type.String({
+            description: 'The id from the requirement tag',
           }),
-          strengths: Type.Array(Type.String(), {
+          evidence: Type.Union([Type.String(), Type.Null()], {
             description:
-              'Requirements the profile meets, each with its evidence from the profile',
+              'The passage of the resume that shows the requirement, copied word for word; null when the resume does not show it',
           }),
-          gaps: Type.Array(Type.String(), {
-            description: 'Requirements the profile does not show',
-          }),
-          summary: Type.String({
-            description: 'One or two sentences on how the candidate fits',
-          }),
-          score: Type.Integer({
-            minimum: 0,
-            maximum: 100,
-            description: 'Points from the rubric',
+          verdict: Type.Enum(VERDICTS, {
+            description:
+              'met when the resume shows the requirement, partial when it shows something close, missing when it does not',
           }),
         },
         { additionalProperties: false }
       )
     ),
+    summary: Type.String({
+      description: 'One or two sentences on how the candidate fits the job',
+    }),
   },
   { additionalProperties: false }
 )
 
-/** A list as prompt lines, or a note that it is empty */
-const bulletList = (items: string[]) =>
-  items.length > 0
-    ? items.map((item) => `- ${item}`).join('\n')
-    : '- none listed'
+/** The verdicts on one resume, as the LLM answers them */
+export type Assessments = Static<typeof assessmentsSchema>
 
-/** The job as prompt lines */
-const describeJob = ({ title, description, requirements }: EvaluateJob) =>
-  `Title: ${title}
-Must have:
-${bulletList(requirements.mustHave)}
-Nice to have:
-${bulletList(requirements.niceToHave)}
-Description:
-${description}`
+/** The requirements as tags, each with the id the answer must repeat */
+const requirementTags = (requirements: EvaluateInput['requirements']) =>
+  requirements
+    .map(({ id, text }) => dataBlock('requirement', text, ` id="${id}"`))
+    .join('\n')
 
-/** One profile as prompt lines, without the name */
-const describeProfile = (profile: ICandidateProfile) =>
-  `Seniority: ${profile.seniority}, ${profile.yearsOfExperience} years of experience
-Skills: ${profile.skills.join(', ')}
-Languages: ${profile.languages.join(', ')}
-Summary: ${profile.summary}`
-
-/** Scores a batch of candidates against one job with a fixed rubric */
+/** Checks one resume against the requirements of one job, one verdict each */
 export const evaluatePrompt: PromptDefinition<
   EvaluateInput,
-  typeof evaluationBatchSchema
+  typeof assessmentsSchema
 > = {
-  version: 'candidates-evaluate@2',
+  version: 'candidates-evaluate@3',
   system: systemMessage({
-    role: 'You score candidates for one job opening for a recruiting team. A recruiter compares scores across many batches and reads every strength before choosing who to interview, so each score must follow the rubric on its own and every strength must point to the profile.',
+    role: 'You check one resume against the requirements of one job for a recruiting team. The code turns your verdicts into the score and shows the recruiter each quote next to its requirement, so every verdict must rest on a passage the recruiter can find in the resume.',
     instructions: [
-      'Score each candidate on its own against the job, never against the other candidates in the batch.',
-      'List as strengths the requirements the profile meets, each with its evidence from the profile, such as "Node.js: 6 anos construindo APIs de pagamento".',
-      'List as gaps the requirements the profile does not show.',
-      'Write the summary in one or two sentences on how the candidate fits the job.',
-      'Add up the score last, from the strengths and gaps.',
-      'Return exactly one result per candidate, with the id from its tag.',
-      'Write in Brazilian Portuguese, keeping the names of technologies as the job and the profile write them.',
-    ],
-    sections: [
-      {
-        title: 'Rubric (0 to 100)',
-        lines: [
-          'Must-haves: up to 60 points, split evenly among them. A requirement earns its full share when the profile shows it, and half when the profile shows something close, such as a similar tool or fewer years.',
-          'Nice-to-haves: up to 20 points, split evenly among them, with the same half rule.',
-          'Seniority and years of experience against what the job asks: up to 20 points.',
-          'When the job lists no requirements of a kind, give those points by how well the profile matches the job description.',
-        ],
-      },
+      'Judge each requirement on its own against the resume, with no weights and no score: the code computes the score.',
+      'For each requirement, copy as evidence the passage of the resume that shows it, word for word, up to 300 characters, in the language of the resume. A passage that is not in the resume makes the requirement count as missing.',
+      'Use met when the resume shows the requirement, partial when it shows something close, such as a similar tool or fewer years than asked, and missing when it does not show it, with evidence null.',
+      'Leave out the name, age, gender, photo and address of the candidate, so a verdict never depends on who the candidate is.',
+      'Return exactly one assessment per requirement, with the id from its tag.',
+      'Write the summary in one or two sentences in Brazilian Portuguese, keeping the names of technologies as the job and the resume write them.',
     ],
   }),
-  schema: evaluationBatchSchema,
-  data: ({ job, candidates }) => {
-    const blocks = candidates.map(({ id, profile }) =>
-      dataBlock('candidate', describeProfile(profile), ` id="${id}"`)
-    )
-    return `${dataBlock('job', describeJob(job))}\n\n<candidates>\n${blocks.join('\n')}\n</candidates>`
+  schema: assessmentsSchema,
+  data: ({ job, requirements, resumeText }) => {
+    const cut = resumeText.length > RESUME_PROMPT_MAX_CHARS
+    const text = cut ? resumeText.slice(0, RESUME_PROMPT_MAX_CHARS) : resumeText
+    const note = cut
+      ? `\nThe resume was cut at ${RESUME_PROMPT_MAX_CHARS} characters.`
+      : ''
+    return [
+      dataBlock('job', `Title: ${job.title}\nDescription:\n${job.description}`),
+      `<requirements>\n${requirementTags(requirements)}\n</requirements>`,
+      `${dataBlock('resume', text)}${note}`,
+    ].join('\n\n')
   },
-  task: 'Score every candidate above against the job.',
-  fake: ({ candidates }) => ({
-    results: candidates.map(({ id }) => ({
-      candidateId: id,
-      strengths: [],
-      gaps: [],
-      summary:
-        'Placeholder from the fake model: set LLM_MODEL to rank for real.',
-      score: 0,
+  task: 'Assess every requirement above against the resume.',
+  fake: ({ requirements }) => ({
+    assessments: requirements.map(({ id }) => ({
+      requirementId: id,
+      evidence: null,
+      verdict: 'missing',
     })),
+    summary: 'Placeholder from the fake model: set LLM_MODEL to rank for real.',
   }),
 }
