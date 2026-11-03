@@ -154,4 +154,19 @@ describe('waitForTurn', () => {
 
     expect(Date.now() - start).toBeGreaterThanOrEqual(140)
   })
+
+  test('calls made at the same time queue up one gap apart', async () => {
+    await waitForTurn(0)
+    const start = Date.now()
+    const times: number[] = []
+
+    await Promise.all(
+      [1, 2, 3].map(async () => {
+        await waitForTurn(100)
+        times.push(Date.now() - start)
+      })
+    )
+
+    expect(times.sort((a, b) => a - b)[2]).toBeGreaterThanOrEqual(190)
+  })
 })

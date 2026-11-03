@@ -52,11 +52,16 @@ const MAX_OUTPUT_TOKENS = 16_000
 /** When the last call started; in memory, which holds because a single worker runs */
 let lastCallAt = 0
 
-/** Waits until at least `gapMs` has passed since the last call started, then takes the turn */
+/**
+ * Takes the next free turn, at least `gapMs` after the one before, then waits
+ * for it. The turn is reserved before waiting, so tasks running at the same
+ * time queue up one gap apart instead of all calling at once.
+ */
 export const waitForTurn = async (gapMs: number): Promise<void> => {
-  const wait = lastCallAt + gapMs - Date.now()
+  const turn = Math.max(Date.now(), lastCallAt + gapMs)
+  lastCallAt = turn
+  const wait = turn - Date.now()
   if (wait > 0) await sleep(wait)
-  lastCallAt = Date.now()
 }
 
 /** A model that always answers the same text: the fake model, and tests */

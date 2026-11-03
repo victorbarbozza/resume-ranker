@@ -14,16 +14,25 @@ export type TaskType = (typeof TASK_TYPES)[number]
  * Settings of one task type.
  *
  * - `maxAttempts`: runs before the task is marked dead
+ * - `priority`: higher runs first among ready tasks, so work a person waits for on screen skips the background backlog
  * - `repeatEveryMs`: set on the types the worker keeps scheduled on its own, with the gap between runs
  */
-export type TaskConfig = { maxAttempts: number; repeatEveryMs?: number }
+export type TaskConfig = {
+  maxAttempts: number
+  priority: number
+  repeatEveryMs?: number
+}
 
 /** The settings of every task type */
 export const TASKS: Record<TaskType, TaskConfig> = {
-  'job.analyze': { maxAttempts: 5 },
-  'candidate.extract_profile': { maxAttempts: 5 },
-  'candidates.evaluate': { maxAttempts: 5 },
-  'maintenance.cleanup': { maxAttempts: 1, repeatEveryMs: 10 * 60_000 },
+  'job.analyze': { maxAttempts: 5, priority: 2 },
+  'candidates.evaluate': { maxAttempts: 5, priority: 1 },
+  'candidate.extract_profile': { maxAttempts: 5, priority: 0 },
+  'maintenance.cleanup': {
+    maxAttempts: 1,
+    priority: 0,
+    repeatEveryMs: 10 * 60_000,
+  },
 }
 
 /** Task types the worker keeps scheduled on its own, one pending run at a time */

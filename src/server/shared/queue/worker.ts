@@ -1,3 +1,4 @@
+import { workerConcurrency } from '@/server/config/env'
 import * as tasksRepo from '@/server/shared/database/repositories/tasks'
 import {
   LOCK_TIMEOUT_MS,
@@ -89,18 +90,21 @@ export const runTask = async (
 }
 
 /**
- * Runs the queue until the signal aborts. Until it has worked once, each
- * round first makes sure every recurring task type has a pending run; then it
- * sends stale tasks back to the queue and runs the next ready task, or waits
- * a poll interval when nothing is ready. A failed round is logged and tried
- * again after the interval, so a database that is down or not migrated yet,
- * as on a first deploy, stops rounds and never the process. The task in
- * progress always finishes before the worker stops.
+ * Runs the queue until the signal aborts, up to `concurrency` tasks at once.
+ * Until it has worked once, each round first makes sure every recurring task
+ * type has a pending run; then it sends stale tasks back to the queue and
+ * claims ready tasks, highest priority first, until every slot is busy. It
+ * waits for a slot to free up or a poll interval, whichever comes first. A
+ * failed round is logged and tried again, so a database that is down or not
+ * migrated yet, as on a first deploy, stops rounds and never the process.
+ * The tasks in progress always finish before the worker stops.
  */
 export const runWorker = async (
   handlers: TaskHandlers,
-  signal: AbortSignal
+  signal: AbortSignal,
+  concurrency = workerConcurrency
 ): Promise<void> => {
+  const running = new Set<Promise<void>>()
   let scheduled = false
   while (!signal.aborted) {
     try {
@@ -112,15 +116,25 @@ export const runWorker = async (
       }
       await tasksRepo.recoverStale(LOCK_TIMEOUT_MS)
 
-      const task = await tasksRepo.claimNext()
-      if (task) {
-        await runTask(task, handlers)
-        continue
+      while (running.size < concurrency) {
+        const task = await tasksRepo.claimNext()
+        if (!task) break
+        const run: Promise<void> = runTask(task, handlers)
+          .catch((error: unknown) => {
+            const message =
+              error instanceof Error ? error.message : String(error)
+            console.error(
+              `✗ ${task.type} ${task.id} could not be settled: ${message}`
+            )
+          })
+          .finally(() => running.delete(run))
+        running.add(run)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.error(`✗ Worker round failed: ${message}`)
     }
-    await sleep(POLL_INTERVAL_MS, signal)
+    await Promise.race([sleep(POLL_INTERVAL_MS, signal), ...running])
   }
+  await Promise.all(running)
 }
