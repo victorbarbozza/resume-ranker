@@ -144,13 +144,11 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] Custom domain with its managed certificate, imported into the stack so a deploy never unbinds it
 - [x] Throughput: tasks run four at a time, highest priority first (job analysis, then rankings, then resumes); LLM pace of 60 calls a minute on a 100k tokens-per-minute deployment
 - [x] First deploy: `bootstrap.sh`, then a merge to main; the GHCR package inherits the repository's public visibility, so Container Apps pulls it with no credentials
-- [ ] First user created with `az containerapp exec ... --command "node create-user.mjs <username>"`
+- [x] First user created with `az containerapp exec ... --command "node create-user.mjs <username>"`
 
 ## 12. Backups
 
 - [x] Database: the managed server keeps 7 days of point-in-time backups
-- [ ] Resumes: soft delete on the `resumes` container
-- [ ] Restore drill documented and tested
 
 ## Improvements (after v1)
 
