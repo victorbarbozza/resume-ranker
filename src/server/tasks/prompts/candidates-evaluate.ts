@@ -84,17 +84,17 @@ export const evaluatePrompt: PromptDefinition<
   EvaluateInput,
   typeof evaluationBatchSchema
 > = {
-  version: 'candidates-evaluate@1',
+  version: 'candidates-evaluate@2',
   system: systemMessage({
     role: 'You score candidates for one job opening for a recruiting team. A recruiter compares scores across many batches and reads every strength before choosing who to interview, so each score must follow the rubric on its own and every strength must point to the profile.',
     instructions: [
       'Score each candidate on its own against the job, never against the other candidates in the batch.',
-      'List as strengths the requirements the profile meets, each with its evidence from the profile, such as "Node.js: 6 years building payment APIs".',
+      'List as strengths the requirements the profile meets, each with its evidence from the profile, such as "Node.js: 6 anos construindo APIs de pagamento".',
       'List as gaps the requirements the profile does not show.',
       'Write the summary in one or two sentences on how the candidate fits the job.',
       'Add up the score last, from the strengths and gaps.',
       'Return exactly one result per candidate, with the id from its tag.',
-      'Write in English.',
+      'Write in Brazilian Portuguese, keeping the names of technologies as the job and the profile write them.',
     ],
     sections: [
       {
