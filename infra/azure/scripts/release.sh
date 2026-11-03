@@ -43,3 +43,14 @@ done
 URL=$(pulumi stack output url --stack "$STACK")
 curl --fail --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors "$URL/api/health" > /dev/null
 echo "✓ Released $LATEST at $URL"
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+  {
+    echo "## 🚀 Released"
+    echo
+    echo "| | |"
+    echo "|---|---|"
+    echo "| Image | \`$IMAGE\` |"
+    echo "| Revision | \`$LATEST\` |"
+    echo "| URL | $URL |"
+  } >> "$GITHUB_STEP_SUMMARY"
+fi

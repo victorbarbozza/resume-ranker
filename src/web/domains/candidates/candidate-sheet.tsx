@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
-import type { ICandidate } from '@/server/shared/schemas/candidate.schema'
+import type { ListedCandidate } from '@/server/domains/candidates/services/candidates'
 import { Button } from '@/web/components/button'
 import { Banner } from '@/web/components/controls'
 import { Note } from '@/web/components/page'
@@ -23,7 +23,7 @@ import styles from './candidates.module.css'
  * - `retrying`: a new read of this resume is being queued
  */
 interface CandidateSheetProps {
-  candidate: ICandidate | undefined
+  candidate: ListedCandidate | undefined
   open: boolean
   onClose: () => void
   onRetry: () => void
@@ -34,7 +34,8 @@ interface CandidateSheetProps {
 /**
  * What the model read from one resume: experience, areas, skills, languages
  * and a summary, with which model read it. While the resume is being read the
- * sheet says so; a resume that could not be read can be tried again. Delete
+ * sheet says so; a resume that could not be read, or was read with an older
+ * prompt, can be read again. Delete
  * sits at the far left, away from Close.
  */
 export function CandidateSheet({
@@ -92,6 +93,23 @@ export function CandidateSheet({
           }
         >
           {t('candidates.failedText')}
+        </Banner>
+      )}
+      {candidate.stale && (
+        <Banner
+          tone="warning"
+          action={
+            <Button
+              size="small"
+              variant="tinted"
+              loading={retrying}
+              onClick={onRetry}
+            >
+              {t('candidates.readAgain')}
+            </Button>
+          }
+        >
+          {t('candidates.staleText')}
         </Banner>
       )}
       {profile && (

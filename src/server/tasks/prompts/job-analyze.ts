@@ -15,7 +15,7 @@ export const jobAnalyzePrompt: PromptDefinition<
   JobAnalyzeInput,
   typeof jobRequirementsSchema
 > = {
-  version: 'job-analyze@1',
+  version: 'job-analyze@2',
   system: systemMessage({
     role: 'You read job openings for a recruiting team and list what each job requires. Every candidate is later scored against your list, so a nice-to-have listed as a must-have lowers every score.',
     instructions: [
@@ -24,7 +24,7 @@ export const jobAnalyzePrompt: PromptDefinition<
       'Count a seniority stated in the title, such as Senior, as a must-have, written as the title states it.',
       'Write one requirement per item: "Node.js and PostgreSQL" becomes two items.',
       'Keep only what the job states, and return an empty list when it states none of a kind, because an invented requirement would cost candidates points.',
-      'Write in English, with canonical names such as PostgreSQL and Node.js, so jobs and resumes use the same words.',
+      'Write in Brazilian Portuguese, keeping the canonical names of technologies such as PostgreSQL and Node.js, so jobs and resumes use the same words.',
     ],
   }),
   schema: jobRequirementsSchema,

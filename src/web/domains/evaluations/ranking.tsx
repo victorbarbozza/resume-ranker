@@ -23,8 +23,7 @@ import {
   SectionTitle,
   Skeleton,
 } from '@/web/components/page'
-import { StatusLabel, Tag } from '@/web/components/status'
-import { candidatesQuery } from '@/web/domains/candidates/queries'
+import { Tag } from '@/web/components/status'
 import { i18n } from '@/web/i18n'
 import { describeError } from '@/web/lib/api'
 import { areaLabel, displayName } from '@/web/lib/format'
@@ -51,14 +50,11 @@ export const provenance = (evaluation: RankedEvaluation, job: IJob) => {
   })
 }
 
-/** Whether a result is the current one for its candidate: still scoring, or scored for this job version and prompt */
-const isCurrent = (evaluation: RankedEvaluation) =>
-  evaluation.status === 'queued' ||
-  (evaluation.status === 'done' && !evaluation.stale)
-
 /**
- * The ranking of a job, best score first. The main button scores the ready
- * candidates of the job's area that have no current result; picking scores
+ * The ranking of a job, best score first. The main button asks the server to
+ * score the ready candidates of the job's area that have no current result,
+ * and the server answers how many it queued, so the screen never loads or
+ * counts the whole base; picking scores
  * the ones chosen by hand, from any area. Results that went stale or failed,
  * whatever their area, are updated from the banner above the list. The list
  * asks again while batches are queued. A row opens in place on a computer and
@@ -67,7 +63,6 @@ const isCurrent = (evaluation: RankedEvaluation) =>
 export function Ranking({ job }: { job: IJob }) {
   const { t } = useTranslation()
   const ranking = useQuery(rankingQuery(job.id))
-  const base = useQuery(candidatesQuery)
   const rank = useRank(job.id)
   const phone = useMediaQuery(PHONE_QUERY)
   const navigate = useNavigate()
@@ -82,16 +77,6 @@ export function Ranking({ job }: { job: IJob }) {
     failed: 0,
   }
   const total = queued + done + failed
-  const current = new Set(
-    evaluations.filter(isCurrent).map((evaluation) => evaluation.candidate.id)
-  )
-  const readyInArea = (base.data?.candidates ?? []).filter(
-    (candidate) =>
-      candidate.status === 'ready' && candidate.areas.includes(job.area)
-  )
-  const toRank = readyInArea.filter(
-    (candidate) => !current.has(candidate.id)
-  ).length
   const outdated = evaluations
     .filter((evaluation) => evaluation.stale || evaluation.status === 'failed')
     .map((evaluation) => evaluation.candidate.id)
@@ -140,20 +125,14 @@ export function Ranking({ job }: { job: IJob }) {
           <Button disabled={analysing} onClick={() => setPicking(true)}>
             {t('ranking.pick')}
           </Button>
-          {total > 0 && toRank === 0 && !base.isPending ? (
-            <StatusLabel tone="ready">{t('ranking.upToDate')}</StatusLabel>
-          ) : (
-            <Button
-              variant="primary"
-              disabled={analysing || base.isPending || toRank === 0}
-              loading={rank.isPending && rank.variables?.scope === 'area'}
-              onClick={rankArea}
-            >
-              {base.isPending
-                ? t('ranking.rankLoading')
-                : t('ranking.rank', { count: toRank })}
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            disabled={analysing}
+            loading={rank.isPending && rank.variables?.scope === 'area'}
+            onClick={rankArea}
+          >
+            {t('ranking.rankArea', { area })}
+          </Button>
         </div>
       </div>
 
@@ -219,17 +198,9 @@ export function Ranking({ job }: { job: IJob }) {
         ) : total === 0 ? (
           <EmptyState
             title={t('ranking.empty')}
-            action={
-              !base.isPending && readyInArea.length === 0 ? (
-                <Link to="/candidates">{t('ranking.uploadResumes')}</Link>
-              ) : undefined
-            }
+            action={<Link to="/candidates">{t('ranking.uploadResumes')}</Link>}
           >
-            {base.isPending
-              ? undefined
-              : readyInArea.length === 0
-                ? t('ranking.emptyNone', { area })
-                : t('ranking.emptyReady', { count: readyInArea.length, area })}
+            {t('ranking.emptyText', { area })}
           </EmptyState>
         ) : (
           <>

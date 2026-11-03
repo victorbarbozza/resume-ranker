@@ -36,7 +36,7 @@ describe('analyzeJob', () => {
       requirements,
       requirementsGeneratedBy: {
         model: 'test-model',
-        promptVersion: 'job-analyze@1',
+        promptVersion: 'job-analyze@2',
       },
     })
   })

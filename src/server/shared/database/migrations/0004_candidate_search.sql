@@ -1,0 +1,2 @@
+CREATE INDEX "idx_candidates_live_created" ON "candidates" USING btree ("created_at" DESC NULLS LAST,"id" DESC NULLS LAST) WHERE "candidates"."deleted_at" is null;--> statement-breakpoint
+CREATE INDEX "idx_candidates_failed" ON "candidates" USING btree ("created_at") WHERE "candidates"."status" = 'failed' and "candidates"."deleted_at" is null;

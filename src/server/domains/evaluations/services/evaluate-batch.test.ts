@@ -75,7 +75,7 @@ describe('evaluateBatch', () => {
       score: 90,
       generatedBy: {
         model: 'test-model',
-        promptVersion: 'candidates-evaluate@1',
+        promptVersion: 'candidates-evaluate@2',
       },
     })
   })

@@ -186,6 +186,14 @@
   color: var(--danger);
 }
 
+.more {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: 6px;
+  border-top: 1px solid var(--separator);
+}
+
 .queueMore {
   display: flex;
   justify-content: center;
@@ -220,8 +228,8 @@
 .table {
   display: grid;
   grid-template-columns:
-    minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1.1fr) max-content
-    minmax(96px, max-content);
+    max-content minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 1.1fr)
+    max-content minmax(96px, max-content);
   column-gap: 12px;
 }
 
@@ -263,6 +271,32 @@
 
 .row:active {
   background: var(--row-pressed);
+}
+
+.check {
+  position: relative;
+  z-index: 1;
+  display: flex;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.selection {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.selection > :first-child {
+  margin-right: auto;
 }
 
 .main {
@@ -404,12 +438,14 @@
 
 @media (max-width: 1023px) and (min-width: 768px) {
   .table {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) max-content;
+    grid-template-columns:
+      max-content minmax(0, 2fr) minmax(0, 1.2fr)
+      max-content;
   }
 
-  .head > :nth-child(2),
-  .head > :nth-child(5),
-  .row > .secondary:nth-child(2),
+  .head > :nth-child(3),
+  .head > :nth-child(6),
+  .row > .secondary:nth-child(3),
   .row > .muted {
     display: none;
   }
@@ -465,7 +501,7 @@
   }
 
   .row {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
     column-gap: 12px;
     min-height: 66px;
     padding: 10px 12px 10px 16px;

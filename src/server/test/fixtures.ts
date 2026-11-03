@@ -83,13 +83,14 @@ export const profileWith = (
 
 /** A candidate whose profile is extracted, so a ranking can pick it up */
 export const createReadyCandidate = async (input: {
+  name?: string
   skills?: string[]
   summary?: string
   areas?: Area[]
 }): Promise<string> => {
   const candidate = await createCandidate()
   await candidatesRepo.saveProfile(candidate.id, {
-    name: null,
+    name: input.name ?? null,
     profile: profileWith(input.skills ?? [], input.summary),
     areas: input.areas ?? ['engineering'],
     generatedBy,

@@ -14,7 +14,7 @@ export const API_ERROR_CODES = [
   'JOB_NOT_ANALYZED',
   'ANALYSIS_NOT_FAILED',
   'CANDIDATE_NOT_FOUND',
-  'PROFILE_NOT_FAILED',
+  'PROFILE_NOT_RETRYABLE',
   'FILE_SIZE',
   'FILE_TYPE',
   'STORE_FAILED',
@@ -46,7 +46,8 @@ export const errors: Record<
       'The description is still being read. Rank once it is ready.',
     ANALYSIS_NOT_FAILED: 'This description is already being read again.',
     CANDIDATE_NOT_FOUND: 'This candidate was already deleted.',
-    PROFILE_NOT_FAILED: 'This resume is already being read again.',
+    PROFILE_NOT_RETRYABLE:
+      'This resume is already being read, or its profile is up to date.',
     FILE_SIZE: 'Empty or larger than 2 MB',
     FILE_TYPE: 'Not a PDF or DOCX',
     STORE_FAILED: 'Could not be stored',
@@ -69,7 +70,8 @@ export const errors: Record<
       'A descrição ainda está sendo lida. Ranqueie quando estiver pronta.',
     ANALYSIS_NOT_FAILED: 'Esta descrição já está sendo lida de novo.',
     CANDIDATE_NOT_FOUND: 'Este candidato já foi excluído.',
-    PROFILE_NOT_FAILED: 'Este currículo já está sendo lido de novo.',
+    PROFILE_NOT_RETRYABLE:
+      'Este currículo já está sendo lido, ou o perfil já está em dia.',
     FILE_SIZE: 'Vazio ou maior que 2 MB',
     FILE_TYPE: 'Não é PDF nem DOCX',
     STORE_FAILED: 'Não foi possível guardar',

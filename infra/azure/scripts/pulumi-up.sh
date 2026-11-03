@@ -10,7 +10,9 @@ export AZURE_STORAGE_ACCOUNT=$STATE_STORAGE_ACCOUNT
 pulumi login "azblob://pulumi-state?storage_account=$STATE_STORAGE_ACCOUNT"
 pulumi stack select "$STACK" --create
 
-if [ "${PULUMI_PREVIEW:-}" = "true" ]; then
+if [ "${PULUMI_PREVIEW:-}" = "true" ] && [ -n "${PULUMI_PREVIEW_JSON:-}" ]; then
+  pulumi preview --json --stack "$STACK" > "$PULUMI_PREVIEW_JSON"
+elif [ "${PULUMI_PREVIEW:-}" = "true" ]; then
   pulumi preview --diff --stack "$STACK"
 else
   pulumi up --stack "$STACK" ${CI:+--yes --non-interactive}

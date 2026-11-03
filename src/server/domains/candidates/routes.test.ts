@@ -7,9 +7,16 @@ import { getFile } from '@/server/shared/connectors/storage'
 import * as candidatesRepo from '@/server/shared/database/repositories/candidates'
 import * as resumeFilesRepo from '@/server/shared/database/repositories/resume-files'
 import { tasks } from '@/server/shared/database/schema'
+import { candidateProfilePrompt } from '@/server/tasks/prompts/candidate-extract-profile'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import { samplePdf, uniquePdf } from '@/server/test/files'
-import { createCandidate, signedInHeaders } from '@/server/test/fixtures'
+import {
+  createCandidate,
+  createReadyCandidate,
+  profileWith,
+  signedInHeaders,
+} from '@/server/test/fixtures'
+import { DELETE_MAX_CANDIDATES } from '@/shared/limits'
 
 let signedIn: Record<string, string>
 
@@ -31,6 +38,13 @@ const upload = (files: File[]) => {
 
 const call = (method: string, path: string) =>
   api.request(`/api/candidates${path}`, { method, headers: signedIn })
+
+const deleteMany = (ids: string[]) =>
+  api.request('/api/candidates/delete', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+    headers: { ...signedIn, 'Content-Type': 'application/json' },
+  })
 
 const profileTasks = () =>
   db.select().from(tasks).where(eq(tasks.type, 'candidate.extract_profile'))
@@ -152,6 +166,30 @@ describe('GET /api/candidates', () => {
       ['older.pdf', 'pending'],
     ])
   })
+
+  test('filters by the query and pages with the cursor it answers', async () => {
+    for (const name of ['Ana Lima', 'Ana Souza', 'Bruno Reis']) {
+      await createReadyCandidate({ name })
+    }
+
+    const ana = await (await call('GET', '?search=ana')).json()
+    const none = await (await call('GET', '?status=failed')).json()
+
+    expect(
+      ana.candidates.map((candidate: { name: string }) => candidate.name)
+    ).toEqual(['Ana Souza', 'Ana Lima'])
+    expect(ana.nextCursor).toBeNull()
+    expect(ana.anyFailed).toBe(false)
+    expect(none.candidates).toEqual([])
+  })
+
+  test('refuses a cursor or a filter it does not know', async () => {
+    const cursor = await call('GET', '?cursor=not-an-id')
+    const area = await call('GET', '?area=astrology')
+
+    expect(cursor.status).toBe(400)
+    expect(area.status).toBe(400)
+  })
 })
 
 describe('POST /api/candidates/:id/retry', () => {
@@ -163,10 +201,63 @@ describe('POST /api/candidates/:id/retry', () => {
     const failed = await call('POST', `/${candidate.id}/retry`)
 
     expect(pending.status).toBe(409)
-    expect((await pending.json()).error).toBe('PROFILE_NOT_FAILED')
+    expect((await pending.json()).error).toBe('PROFILE_NOT_RETRYABLE')
     expect(failed.status).toBe(202)
     expect((await failed.json()).status).toBe('pending')
     expect(await profileTasks()).toHaveLength(1)
+  })
+
+  test('reads a profile from an older prompt again, but not a current one', async () => {
+    const older = await createReadyCandidate({ name: 'Ana Lima' })
+    const current = await createCandidate()
+    await candidatesRepo.saveProfile(current.id, {
+      name: 'Bruno Reis',
+      profile: profileWith([]),
+      areas: ['engineering'],
+      generatedBy: {
+        model: 'fake',
+        promptVersion: candidateProfilePrompt.version,
+      },
+    })
+
+    const list = await (await call('GET', '')).json()
+    const reread = await call('POST', `/${older}/retry`)
+    const refused = await call('POST', `/${current.id}/retry`)
+
+    expect(
+      list.candidates.map(
+        (candidate: { name: string; stale: boolean }) =>
+          `${candidate.name} ${candidate.stale}`
+      )
+    ).toEqual(['Bruno Reis false', 'Ana Lima true'])
+    expect(reread.status).toBe(202)
+    expect(refused.status).toBe(409)
+  })
+})
+
+describe('POST /api/candidates/delete', () => {
+  test('hides the live candidates among the ids and answers how many', async () => {
+    const [ana, bruno, carla] = await Promise.all(
+      ['Ana', 'Bruno', 'Carla'].map((name) => createReadyCandidate({ name }))
+    )
+    await candidatesRepo.softDelete(carla)
+
+    const response = await deleteMany([ana, bruno, carla])
+    const list = await (await call('GET', '')).json()
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ deleted: 2 })
+    expect(list.candidates).toEqual([])
+  })
+
+  test('refuses an empty list, a bad id or more than the limit', async () => {
+    const tooMany = Array.from({ length: DELETE_MAX_CANDIDATES + 1 }, () =>
+      crypto.randomUUID()
+    )
+
+    expect((await deleteMany([])).status).toBe(400)
+    expect((await deleteMany(['not-an-id'])).status).toBe(400)
+    expect((await deleteMany(tooMany)).status).toBe(400)
   })
 })
 

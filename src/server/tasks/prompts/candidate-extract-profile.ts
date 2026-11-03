@@ -48,7 +48,7 @@ export const candidateProfilePrompt: PromptDefinition<
   CandidateProfileInput,
   typeof extractedProfileSchema
 > = {
-  version: 'candidate-profile@1',
+  version: 'candidate-profile@2',
   system: systemMessage({
     role: 'You read resumes for a recruiting team and turn each one into a short profile. Rankings read only this profile, never the resume, so a skill or fact you leave out can never count for the candidate.',
     instructions: [
@@ -58,7 +58,7 @@ export const candidateProfilePrompt: PromptDefinition<
       'Count years of experience from the dates of paid work: overlapping jobs count once, a current job runs until today, and studies do not count. Use 0 when the resume has no work history.',
       'Pick the seniority from the definitions below.',
       'Write the summary in three to five sentences of concrete facts: domains, scale, projects and results. Leave out the name, age, gender, photo and address, so a score never depends on who the candidate is.',
-      'Write in English, whatever the language of the resume.',
+      'Write in Brazilian Portuguese, whatever the language of the resume, keeping the canonical names of technologies.',
       'Use only what the resume states, and leave out what it does not say, because the recruiter trusts every item.',
     ],
     sections: [
