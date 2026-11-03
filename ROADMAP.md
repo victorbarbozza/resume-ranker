@@ -54,7 +54,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 ## 5. LLM connector
 
 - [x] Vercel AI SDK (`ai`) behind one `generateJson(prompt, schema)` call; `LLM_MODEL=<provider>:<model>` picks the model, so switching providers is configuration
-- [x] Providers in one map (package, required variables, default pace); adding one is a package and an entry
+- [x] Providers in one map (package, required variables); adding one is a package and an entry
 - [x] `azure` provider: `azure:<deployment>` with `AZURE_RESOURCE_NAME` and `AZURE_API_KEY`; requests are not stored by Azure
 - [x] `ollama` provider for a local model, through its OpenAI-compatible API
 - [x] `anthropic` provider for Claude, through Anthropic's own API, with the server-side fallback when a model declines
@@ -62,7 +62,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] TypeBox schemas passed to the SDK as JSON Schema for structured output
 - [x] Output validated with TypeBox; invalid output counts as a failed attempt
 - [x] Provider 429 reschedules the task without spending an attempt, after the wait the provider asks for
-- [x] Pace: at least `60 s ÷ LLM_RPM` between calls, kept in memory by the connector (one worker)
+- [x] No pace of its own: `WORKER_CONCURRENCY` caps the calls in flight, and the provider's 429 answers postpone the rest, so several workers need nothing shared
 - [x] LLM settings from run-time environment variables only; the worker refuses to start when one is missing
 - [x] Prompts: one file per task type in `src/server/tasks/prompts/`, each with a `PROMPT_VERSION`; bump it on every change
 - [x] Snapshot test of every built prompt, so a prompt change shows up in the pull request diff
@@ -76,7 +76,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] `DELETE /api/jobs/:id` (soft delete)
 - [x] `POST /api/jobs/:id/retry` queues a failed analysis again; 409 while it is pending or done
 - [x] A TypeBox schema for each task payload; handlers validate the payload before using it, so reading a task needs no cast
-- [x] `job.analyze` handler: must-have and nice-to-have requirements; skips a deleted job or an older version without calling the LLM, and marks the job failed once the task is dead
+- [x] `job.analyze` handler: must-haves, each primary or secondary, nice-to-haves, and the years and level the job asks for; skips a deleted job or an older version without calling the LLM, and marks the job failed once the task is dead
 - [x] Integration tests
 
 ## 7. Resumes API
@@ -96,13 +96,14 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 
 ## 8. Ranking API
 
-- [x] `POST /api/jobs/:id/evaluations` with `area` scope (every ready candidate of the job's area, up to `RANKING_MAX_CANDIDATES`, 50 by default) or `selected` scope, split into batches of 5; the response says how many the limit left out; candidates with a current result are not queued again
-- [x] `candidates.evaluate` handler: fixed rubric, strengths with evidence, gaps
-- [x] The handler checks that every candidate sent got exactly one result; an unknown id is ignored, the first of two results wins, and a missing one fails the attempt
-- [x] `fake` model gives each candidate of a batch a placeholder result with score 0 (a prompt can define its own fake answer)
+- [x] `POST /api/jobs/:id/evaluations` with `area` scope (every ready candidate of the job's area, up to `RANKING_MAX_CANDIDATES`, 50 by default) or `selected` scope, one task per candidate; the response says how many the limit left out; candidates with a current result are not queued again
+- [x] `candidates.evaluate` handler: the LLM reads the whole resume and answers, for each requirement, met, partial or missing with the passage of the resume that shows it; it gives no score
+- [x] The code checks that every requirement got exactly one verdict, or the attempt fails, and that every quote is in the resume, or the verdict becomes missing
+- [x] Score computed by the code: must-haves weigh 80% and nice-to-haves 20% (a group alone takes it all); a primary must-have weighs twice a secondary one; met earns its whole weight and partial half; the years or level the job asks for are one more primary must-have, judged from the profile
+- [x] `fake` model answers every requirement as missing, so a ranking runs with no key and scores 0
 - [x] Prompt guardrails: resume text delimited as data, output validated against the schema
 - [x] `GET /api/jobs/:id/evaluations` with progress counts, stale flags (older job version or older prompt version) and other-area flags; deleted candidates are hidden
-- [x] A job whose analysis failed can still be ranked against its raw description, with a warning that results are poorer
+- [x] A job with no requirements to check, such as one whose analysis failed, answers 409 until it is read again or edited
 - [x] Integration tests
 
 ## 9. Access control
@@ -125,7 +126,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] Client typed from the API routes end to end (`hc` and `parseResponse`); a session that ends mid-use sends the person to sign in again
 - [x] Jobs list with search and filters, create and edit form with an area picker, job page with status and requirements, delete, and retry of a failed analysis
 - [x] Candidates page: drop any number of PDF and DOCX files anywhere on the page or choose them, checked in the browser, sent five per request and two requests at a time, with per-file status and Send again for files that got no answer; a row opens the profile in a sheet, with Retry and Delete; rows can be checked, one by one or every one shown, and deleted together
-- [x] Ranking on the job page, above the requirements: the whole area or candidates picked by hand (the job's area first, with earlier scores), progress, results best first with the top strength and gap, stale, other-area and placeholder tags, and one button to update stale or failed results; a row opens its summary, strengths and gaps
+- [x] Ranking on the job page, above the requirements: the whole area or candidates picked by hand (the job's area first, with earlier scores), progress, results best first with the top met and missing requirement, stale, other-area and placeholder tags, and one button to update stale or failed results; a row opens its summary and the verdict on each requirement with its quote
 - [x] Polling while work is pending: every 2 s in the first minute, every 5 s up to 5 minutes, then every 30 s
 - [x] Phone layout: a tab bar, sheets that rise from the bottom, and a ranking row that opens its result on its own screen, with previous and next
 - [x] English and Brazilian Portuguese: the language comes from the browser and can be changed from a selector; API errors are shown from their code, in the person's language
@@ -142,7 +143,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] `ci.yml` on every PR: lint, types of the app and the infra, format, tests and build, each one timed, then `pulumi preview`; one PR comment, updated on each push, holds both summaries, with replaces and deletes called out
 - [x] `deploy.yml` on main: the same checks first, then build the amd64 image, push it to GHCR, `pulumi up`, run the migration job with the new image, move the app to it and wait for `/api/health` (the steps of `bun run dev`); the job summary shows the image, the revision and the URL
 - [x] Custom domain with its managed certificate, imported into the stack so a deploy never unbinds it
-- [x] Throughput: tasks run four at a time, highest priority first (job analysis, then rankings, then resumes); LLM pace of 60 calls a minute on a 100k tokens-per-minute deployment
+- [x] Throughput: tasks run four at a time, highest priority first (job analysis, then rankings, then resumes); a 100k tokens-per-minute deployment
 - [x] First deploy: `bootstrap.sh`, then a merge to main; the GHCR package inherits the repository's public visibility, so Container Apps pulls it with no credentials
 - [x] First user created with `az containerapp exec ... --command "node create-user.mjs <username>"`
 
