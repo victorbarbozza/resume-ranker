@@ -1,4 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -14,13 +18,15 @@ import { Tag } from '@/web/components/status'
 import { candidatesQuery } from '@/web/domains/candidates/queries'
 import { describeError } from '@/web/lib/api'
 import { areaLabel, displayName, profileLine } from '@/web/lib/format'
+import { useDebounced } from '@/web/lib/use-debounced'
 
 import styles from './evaluations.module.css'
 import { rankingQuery, useRank } from './queries'
 
 /**
- * Picks candidates by hand to rank against a job, from the ready ones: the
- * job's area first, then the other areas. Someone from another area is scored
+ * Picks candidates by hand to rank against a job, from the ready ones the
+ * server finds for the search, a page at a time: the job's area first, then
+ * the other areas, within what is loaded. Someone from another area is scored
  * all the same and marked Other area. A candidate already scored shows the
  * score, or Stale when it needs an update. The choice is forgotten when the
  * sheet closes.
@@ -35,12 +41,21 @@ export function CandidatePicker({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const { data } = useQuery(candidatesQuery)
   const { data: ranking } = useQuery(rankingQuery(job.id))
   const rank = useRank(job.id)
   const [picked, setPicked] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [scope, setScope] = useState<'job' | 'all'>('all')
+  const settledSearch = useDebounced(search)
+  const list = useInfiniteQuery({
+    ...candidatesQuery({
+      search: settledSearch,
+      area: scope === 'job' ? job.area : undefined,
+      status: 'ready',
+    }),
+    placeholderData: keepPreviousData,
+    enabled: open,
+  })
 
   const close = () => {
     setPicked([])
@@ -48,17 +63,8 @@ export function CandidatePicker({
     setScope('all')
     onClose()
   }
-  const ready = (data?.candidates ?? []).filter(
-    (candidate) => candidate.status === 'ready'
-  )
-  const term = search.trim().toLowerCase()
-  const shown = ready.filter(
-    (candidate) =>
-      (scope === 'all' || candidate.areas.includes(job.area)) &&
-      [displayName(candidate), ...(candidate.profile?.skills ?? [])].some(
-        (text) => text.toLowerCase().includes(term)
-      )
-  )
+  const shown = (list.data?.pages ?? []).flatMap((page) => page.candidates)
+  const term = settledSearch.trim()
   const groups = [
     {
       title: areaLabel(job.area),
@@ -153,13 +159,14 @@ export function CandidatePicker({
             ]}
           />
         </div>
-        {ready.length === 0 && <EmptyState title={t('ranking.noneReady')} />}
-        {ready.length > 0 && groups.length === 0 && (
+        {!list.isPending && !list.isError && shown.length === 0 && (
           <EmptyState
             title={
               term
-                ? t('ranking.noneMatch', { search: search.trim() })
-                : t('ranking.emptyNone', { area: areaLabel(job.area) })
+                ? t('ranking.noneMatch', { search: term })
+                : scope === 'job'
+                  ? t('ranking.emptyNone', { area: areaLabel(job.area) })
+                  : t('ranking.noneReady')
             }
           />
         )}
@@ -211,6 +218,14 @@ export function CandidatePicker({
             </ul>
           </section>
         ))}
+        {list.hasNextPage && (
+          <Button
+            loading={list.isFetchingNextPage}
+            onClick={() => list.fetchNextPage()}
+          >
+            {t('common.loadMore')}
+          </Button>
+        )}
       </div>
     </Sheet>
   )

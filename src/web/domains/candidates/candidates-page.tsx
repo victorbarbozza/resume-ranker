@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -10,7 +10,6 @@ import { Banner, SearchField, Segmented } from '@/web/components/controls'
 import { ChevronRightIcon, UploadIcon } from '@/web/components/icons'
 import {
   EmptyState,
-  ListCount,
   Page,
   PageHeader,
   Panel,
@@ -18,7 +17,7 @@ import {
 } from '@/web/components/page'
 import { Select } from '@/web/components/select'
 import { ConfirmSheet } from '@/web/components/sheet'
-import { StatusLabel } from '@/web/components/status'
+import { StatusLabel, Tag } from '@/web/components/status'
 import { describeError } from '@/web/lib/api'
 import {
   areaLabel,
@@ -27,10 +26,16 @@ import {
   profileLine,
   timeAgo,
 } from '@/web/lib/format'
+import { useDebounced } from '@/web/lib/use-debounced'
 
 import { CandidateSheet } from './candidate-sheet'
 import styles from './candidates.module.css'
-import { candidatesQuery, useDeleteCandidate, useRetryProfile } from './queries'
+import {
+  candidatesQuery,
+  useDeleteCandidate,
+  useDeleteCandidates,
+  useRetryProfile,
+} from './queries'
 import {
   DropOverlay,
   DropZone,
@@ -44,43 +49,55 @@ type StatusFilter = 'all' | ICandidate['status']
 
 /**
  * Every resume in the base and where reading it stands. Resumes come in by
- * dropping files anywhere on the page or choosing them; the list filters by
- * name, file, skill, area and status, and asks again while any resume is being
- * read. A row opens the candidate's profile in a sheet, where the candidate
- * can be deleted.
+ * dropping files anywhere on the page or choosing them. The server searches
+ * by name, filters by area and status, and answers 50 at a
+ * time, newest first, with more on request; nothing is counted. The loaded
+ * pages are asked again while a resume on them is being read. A row opens
+ * the candidate's profile in a sheet, where the candidate can be deleted.
  */
 export function CandidatesPage() {
   const { t } = useTranslation()
-  const { data, isPending, isError, refetch } = useQuery(candidatesQuery)
-  const retry = useRetryProfile()
-  const remove = useDeleteCandidate()
-  const dragging = usePageDrop()
-  const input = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState('')
   const [area, setArea] = useState<'all' | Area>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
+  const settledSearch = useDebounced(search)
+  const {
+    data,
+    isPending,
+    isError,
+    refetch,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    ...candidatesQuery({
+      search: settledSearch,
+      area: area === 'all' ? undefined : area,
+      status: status === 'all' ? undefined : status,
+    }),
+    placeholderData: keepPreviousData,
+  })
+  const retry = useRetryProfile()
+  const remove = useDeleteCandidate()
+  const removeMany = useDeleteCandidates()
+  const dragging = usePageDrop()
+  const input = useRef<HTMLInputElement>(null)
   const [selectedId, setSelectedId] = useState<string>()
   const [viewing, setViewing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [checked, setChecked] = useState<string[]>([])
+  const [confirmingDeleteMany, setConfirmingDeleteMany] = useState(false)
 
-  const all = data?.candidates ?? []
-  const selected = all.find((candidate) => candidate.id === selectedId)
-  const term = search.trim().toLowerCase()
-  const filtered = term !== '' || area !== 'all' || status !== 'all'
-  const candidates = all.filter(
-    (candidate) =>
-      [
-        displayName(candidate),
-        candidate.fileName,
-        ...(candidate.profile?.skills ?? []),
-      ].some((text) => text.toLowerCase().includes(term)) &&
-      (area === 'all' || candidate.areas.includes(area)) &&
-      (status === 'all' || candidate.status === status)
-  )
-  const failedCount = all.filter(
-    (candidate) => candidate.status === 'failed'
-  ).length
-  const empty = !isPending && !isError && all.length === 0
+  const candidates = data?.pages.flatMap((page) => page.candidates) ?? []
+  const anyFailed = data?.pages[0]?.anyFailed ?? false
+  const selected = candidates.find((candidate) => candidate.id === selectedId)
+  const checkedIds = candidates
+    .filter((candidate) => checked.includes(candidate.id))
+    .map((candidate) => candidate.id)
+  const allChecked =
+    candidates.length > 0 && checkedIds.length === candidates.length
+  const filtered = search.trim() !== '' || area !== 'all' || status !== 'all'
+  const empty = !filtered && !isPending && !isError && candidates.length === 0
   const statusLabels = {
     ready: t('common.ready'),
     pending: t('common.reading'),
@@ -97,6 +114,22 @@ export function CandidatesPage() {
     retry.mutate(candidateId, {
       onSuccess: () => toast.success(t('candidates.retried')),
       onError: (error) => toast.error(describeError(error)),
+    })
+  const toggle = (candidateId: string) =>
+    setChecked(
+      checked.includes(candidateId)
+        ? checked.filter((id) => id !== candidateId)
+        : [...checked, candidateId]
+    )
+  const toggleAll = () =>
+    setChecked(allChecked ? [] : candidates.map((candidate) => candidate.id))
+  const deleteChecked = () =>
+    removeMany.mutate(checkedIds, {
+      onSuccess: (deleted) => {
+        toast.success(t('candidates.deletedMany', { count: deleted }))
+        setChecked([])
+        setConfirmingDeleteMany(false)
+      },
     })
   const deleteCandidate = (candidate: ICandidate) =>
     remove.mutate(candidate.id, {
@@ -143,7 +176,7 @@ export function CandidatesPage() {
 
       {!empty && (
         <section className={styles.list}>
-          {failedCount > 0 && status !== 'failed' && (
+          {anyFailed && status !== 'failed' && (
             <Banner
               tone="warning"
               action={
@@ -156,7 +189,7 @@ export function CandidatesPage() {
                 </Button>
               }
             >
-              {t('candidates.failedBanner', { count: failedCount })}
+              {t('candidates.failedBanner')}
             </Banner>
           )}
 
@@ -193,18 +226,28 @@ export function CandidatesPage() {
                 { value: 'failed', label: t('common.failed') },
               ]}
             />
+            {checkedIds.length > 0 && (
+              <div className={styles.selection}>
+                <span aria-live="polite">
+                  {t('candidates.selected', { count: checkedIds.length })}
+                </span>
+                <Button
+                  variant="plain"
+                  size="small"
+                  onClick={() => setChecked([])}
+                >
+                  {t('candidates.clearSelection')}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="small"
+                  onClick={() => setConfirmingDeleteMany(true)}
+                >
+                  {t('candidates.delete')}
+                </Button>
+              </div>
+            )}
           </div>
-
-          {all.length > 0 && (
-            <ListCount>
-              {filtered
-                ? t('common.showing', {
-                    shown: candidates.length,
-                    total: all.length,
-                  })
-                : t('candidates.count', { count: all.length })}
-            </ListCount>
-          )}
 
           <Panel busy={isPending}>
             {isPending ? (
@@ -233,18 +276,40 @@ export function CandidatesPage() {
               </EmptyState>
             ) : (
               <div className={styles.table}>
-                <div className={styles.head} aria-hidden="true">
-                  <span>{t('candidates.columnCandidate')}</span>
-                  <span>{t('candidates.columnAreas')}</span>
-                  <span>{t('candidates.columnExperience')}</span>
-                  <span>{t('candidates.columnStatus')}</span>
-                  <span className={styles.end}>
+                <div className={styles.head}>
+                  <span className={styles.check}>
+                    <input
+                      type="checkbox"
+                      aria-label={t('candidates.selectAll')}
+                      checked={allChecked}
+                      onChange={toggleAll}
+                    />
+                  </span>
+                  <span aria-hidden="true">
+                    {t('candidates.columnCandidate')}
+                  </span>
+                  <span aria-hidden="true">{t('candidates.columnAreas')}</span>
+                  <span aria-hidden="true">
+                    {t('candidates.columnExperience')}
+                  </span>
+                  <span aria-hidden="true">{t('candidates.columnStatus')}</span>
+                  <span aria-hidden="true" className={styles.end}>
                     {t('candidates.columnAdded')}
                   </span>
                 </div>
                 <ul className={styles.rows}>
                   {candidates.map((candidate) => (
                     <li key={candidate.id} className={styles.row}>
+                      <span className={styles.check}>
+                        <input
+                          type="checkbox"
+                          aria-label={t('candidates.selectLabel', {
+                            name: displayName(candidate),
+                          })}
+                          checked={checked.includes(candidate.id)}
+                          onChange={() => toggle(candidate.id)}
+                        />
+                      </span>
                       <div className={styles.main}>
                         <button
                           type="button"
@@ -286,6 +351,11 @@ export function CandidatesPage() {
                         <StatusLabel tone={candidate.status}>
                           {statusLabels[candidate.status]}
                         </StatusLabel>
+                        {candidate.stale && (
+                          <span className={styles.hideOnPhone}>
+                            <Tag tone="stale">{t('common.stale')}</Tag>
+                          </span>
+                        )}
                         {candidate.status === 'failed' && (
                           <Button
                             variant="tinted"
@@ -313,6 +383,17 @@ export function CandidatesPage() {
                     </li>
                   ))}
                 </ul>
+                {hasNextPage && (
+                  <div className={styles.more}>
+                    <Button
+                      variant="plain"
+                      loading={isFetchingNextPage}
+                      onClick={() => fetchNextPage()}
+                    >
+                      {t('common.loadMore')}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </Panel>
@@ -345,6 +426,21 @@ export function CandidatesPage() {
           error={remove.error ? describeError(remove.error) : undefined}
         />
       )}
+      <ConfirmSheet
+        open={confirmingDeleteMany}
+        onClose={() => {
+          setConfirmingDeleteMany(false)
+          removeMany.reset()
+        }}
+        title={t('candidates.deleteManyTitle', { count: checkedIds.length })}
+        description={t('candidates.deleteText')}
+        confirmLabel={t('candidates.deleteManyConfirm', {
+          count: checkedIds.length,
+        })}
+        onConfirm={deleteChecked}
+        pending={removeMany.isPending}
+        error={removeMany.error ? describeError(removeMany.error) : undefined}
+      />
     </Page>
   )
 }
