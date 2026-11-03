@@ -4,7 +4,6 @@ config:
   resume-ranker:openaiModel: gpt-5-mini
   resume-ranker:openaiModelVersion: '2025-08-07'
   resume-ranker:openaiCapacity: '100'
-  resume-ranker:llmRpm: '60'
   resume-ranker:customDomain: ranker.vhbarboza.dev
   resume-ranker:customDomainCertificate: mc-cae-resume-ran-ranker-vhbarboza-2490
   resume-ranker:budgetAmount: '10'

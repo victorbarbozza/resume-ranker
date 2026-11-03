@@ -23,7 +23,6 @@ const containers = createContainers({
   resourceGroupName: group,
   names,
   image: settings.image,
-  llmRpm: settings.llmRpm,
   domain: settings.domain,
   database,
   files,

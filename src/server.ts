@@ -18,9 +18,7 @@ try {
       '! LLM is fake: every answer is a placeholder. Set LLM_MODEL, such as azure:<deployment>, to rank for real'
     )
   } else {
-    console.info(
-      `✓ LLM: ${llm.provider} ${llm.modelId}, up to ${llm.rpm} calls a minute`
-    )
+    console.info(`✓ LLM: ${llm.provider} ${llm.modelId}`)
   }
   await fileStorage()
   console.info(

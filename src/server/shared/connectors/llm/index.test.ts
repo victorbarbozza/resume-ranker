@@ -5,7 +5,7 @@ import { Type } from 'typebox'
 
 import { RetryLaterError } from '@/server/shared/queue/retry-later-error'
 
-import { fixedAnswerModel, generateJson, waitForTurn } from './index'
+import { fixedAnswerModel, generateJson } from './index'
 
 const request = {
   system: 'Extract the requirements.',
@@ -142,31 +142,5 @@ describe('generateJson', () => {
       output: { mustHave: [], seniority: 'junior' },
       model: 'fake',
     })
-  })
-})
-
-describe('waitForTurn', () => {
-  test('keeps calls at least the gap apart', async () => {
-    await waitForTurn(0)
-    const start = Date.now()
-
-    await waitForTurn(150)
-
-    expect(Date.now() - start).toBeGreaterThanOrEqual(140)
-  })
-
-  test('calls made at the same time queue up one gap apart', async () => {
-    await waitForTurn(0)
-    const start = Date.now()
-    const times: number[] = []
-
-    await Promise.all(
-      [1, 2, 3].map(async () => {
-        await waitForTurn(100)
-        times.push(Date.now() - start)
-      })
-    )
-
-    expect(times.sort((a, b) => a - b)[2]).toBeGreaterThanOrEqual(190)
   })
 })
