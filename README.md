@@ -47,7 +47,7 @@ Both follow the same steps:
 
 The app never changes the schema: it starts only after the migration step exits successfully.
 
-One process serves the API and the screen and works the task queue, so the whole app is one container with one replica. The LLM pace is kept in memory, which holds because one process runs; a DOCX is checked to unzip to at most 10 MB before it is read, so a zip bomb fails its task at once instead of filling the memory the API shares. A task that cannot succeed by trying again, such as that file or an answer the LLM declines, is dead on its first attempt.
+One process serves the API and the screen and works the task queue, so the whole app is one container with one replica. The worker runs up to `WORKER_CONCURRENCY` tasks at once, highest priority first: a job's analysis, then rankings, then reading resumes, so what a person waits for on screen skips the background backlog. The LLM pace is kept in memory and every call reserves its turn, which holds because one process runs; a DOCX is checked to unzip to at most 10 MB before it is read, so a zip bomb fails its task at once instead of filling the memory the API shares. A task that cannot succeed by trying again, such as that file or an answer the LLM declines, is dead on its first attempt.
 
 ### Signing in
 
@@ -73,6 +73,7 @@ Nothing needs to be configured to run locally: every variable has a default that
 | `TEST_DATABASE_URL`                                                       | `postgres://dev:dev@localhost:55433/resume_ranker_test` | tests (must end in `_test`)                                                                                |
 | `LLM_MODEL`                                                               | `fake`                                                  | app: `<provider>:<model>`, such as `azure:my-deployment`, `anthropic:claude-opus-5-5` or `ollama:llama3.2` |
 | `LLM_RPM`                                                                 | `10` for azure and anthropic, `30` for ollama           | app: LLM calls per minute                                                                                  |
+| `WORKER_CONCURRENCY`                                                      | `4`                                                     | app: tasks the worker runs at the same time                                                                |
 | `AZURE_RESOURCE_NAME` / `AZURE_API_KEY`                                   | none                                                    | app, with an `azure:` model                                                                                |
 | `ANTHROPIC_API_KEY`                                                       | none                                                    | app, with an `anthropic:` model                                                                            |
 | `OLLAMA_BASE_URL`                                                         | `http://localhost:11434/v1`                             | app, with an `ollama:` model                                                                               |
@@ -127,7 +128,9 @@ STATE_STORAGE_ACCOUNT=stresumerankerstate42 PULUMI_CONFIG_PASSPHRASE=... BUDGET_
 
 It is the only step that needs an owner of the subscription. It registers the resource providers, creates the `rg-resume-ranker` resource group and the storage account that keeps the Pulumi state, and gives the CI a service principal with a client secret and the GitHub secrets the workflows read. That principal holds two grants and nothing else: a custom role, `resume-ranker-deployer`, on `rg-resume-ranker` only, which allows the resource types the stack creates (Container Apps, PostgreSQL, storage, Azure OpenAI, budgets) and cannot grant access; and read and write on the `pulumi-state` container. Running it again rotates the secret and updates the role.
 
-Then every push to `main` builds the image, pushes it to GHCR, applies `infra/azure` with Pulumi, runs the migration job with the new image, moves the app to it and waits for `/api/health`. On the first push, make the `resume-ranker` package public in GitHub once the image is there, so Container Apps can pull it, and run the workflow again. Pull requests that touch `infra/` get a `pulumi preview`.
+Then every push to `main` builds the image, pushes it to GHCR, applies `infra/azure` with Pulumi, runs the migration job with the new image, moves the app to it and waits for `/api/health`. The image package is linked to this public repository, so it is public too and Container Apps pulls it with no credentials. Pull requests that touch `infra/` get a `pulumi preview`.
+
+A custom domain is two settings in `infra/azure/Pulumi.prod.yaml`, `customDomain` and `customDomainCertificate`. Create the CNAME to the app's address and the `asuid` TXT record first, add the hostname and its managed certificate once with `az containerapp hostname add` and `bind`, then name both in the stack: the next deploy imports the certificate and keeps the domain bound.
 
 The first user is created inside the running app:
 
