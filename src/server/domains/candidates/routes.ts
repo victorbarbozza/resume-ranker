@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 
 import {
   deleteCandidate,
+  deleteCandidates,
   listCandidates,
   retryProfile,
 } from '@/server/domains/candidates/services/candidates'
@@ -10,18 +11,32 @@ import { uploadResumes } from '@/server/domains/candidates/services/upload-resum
 import { limitBody, rejectInvalid } from '@/server/shared/http/middleware'
 import { RESUME_FILE_MAX_BYTES, UPLOAD_MAX_FILES } from '@/shared/limits'
 
-import { candidateIdParam, uploadResumesForm } from './routes.schemas'
+import {
+  candidateIdParam,
+  deleteCandidatesBody,
+  listCandidatesQuery,
+  uploadResumesForm,
+} from './routes.schemas'
 
 /**
  * The candidate routes, under /api/candidates. Chained in one expression, so
  * the typed client knows every path, input and answer.
  *
+ * - `GET /`: one page of candidates matching `search`, `area` and `status`, newest first, with the cursor of the next page
  * - `POST /`: stores the files and queues their profiles; 202 with one result per file, in the order sent. The body may hold every file at the limit, plus 1 MB for the multipart boundaries
- * - `POST /:id/retry`: queues a failed profile again; 202, or 409 when it did not fail
+ * - `POST /delete`: soft deletes up to 100 candidates by id; 200 with how many were live
+ * - `POST /:id/retry`: queues a failed or outdated profile again; 202, or 409 while it is pending or current
  * - `DELETE /:id`: soft delete; 204
  */
 export const candidatesRoutes = new Hono()
-  .get('/', async (c) => c.json({ candidates: await listCandidates() }))
+  .get(
+    '/',
+    tbValidator('query', listCandidatesQuery, rejectInvalid),
+    async (c) => {
+      const { cursor, ...filters } = c.req.valid('query')
+      return c.json(await listCandidates({ ...filters, after: cursor }))
+    }
+  )
   .post(
     '/',
     limitBody(UPLOAD_MAX_FILES * RESUME_FILE_MAX_BYTES + 1024 * 1024),
@@ -30,6 +45,11 @@ export const candidatesRoutes = new Hono()
       const files = [c.req.valid('form').files].flat()
       return c.json({ results: await uploadResumes(files) }, 202)
     }
+  )
+  .post(
+    '/delete',
+    tbValidator('json', deleteCandidatesBody, rejectInvalid),
+    async (c) => c.json(await deleteCandidates(c.req.valid('json').ids))
   )
   .post(
     '/:id/retry',

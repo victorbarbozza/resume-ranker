@@ -57,7 +57,7 @@ describe('extractProfile', () => {
       profile: answer.profile,
       profileGeneratedBy: {
         model: 'test-model',
-        promptVersion: 'candidate-profile@1',
+        promptVersion: 'candidate-profile@2',
       },
     })
   })

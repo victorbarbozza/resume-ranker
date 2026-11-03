@@ -3,7 +3,6 @@ import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { meQuery, useLogout } from '@/web/domains/auth/queries'
-import { candidatesQuery } from '@/web/domains/candidates/queries'
 import { jobsQuery } from '@/web/domains/jobs/queries'
 
 import styles from './app-shell.module.css'
@@ -24,7 +23,6 @@ export function AppShell() {
   const { t } = useTranslation()
   const { data: me } = useQuery(meQuery)
   const { data: jobs } = useQuery(jobsQuery)
-  const { data: candidates } = useQuery(candidatesQuery)
   const logout = useLogout()
   const { pathname } = useLocation()
 
@@ -44,7 +42,6 @@ export function AppShell() {
         <Link to="/candidates" className={styles.item}>
           <CandidatesIcon />
           <span className={styles.itemLabel}>{t('common.candidates')}</span>
-          <span className={styles.count}>{candidates?.candidates.length}</span>
         </Link>
         <span
           className={`${styles.item} ${styles.disabled}`}

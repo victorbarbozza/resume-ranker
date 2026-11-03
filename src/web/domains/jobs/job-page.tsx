@@ -165,12 +165,14 @@ function BackToJobs() {
 /**
  * What the job requires. Open while there is no ranking yet; once there is
  * one, it folds into a line with the counts, so the ranking stays in view.
- * The description the model read can be opened inside.
+ * The description the model read can be opened inside. It waits for the
+ * ranking before it shows, so it opens already folded or unfolded instead of
+ * folding as the ranking arrives.
  */
 function Requirements({ job }: { job: IJob }) {
   const { t } = useTranslation()
   const retry = useRetryAnalysis()
-  const { data: ranking } = useQuery(rankingQuery(job.id))
+  const { data: ranking, isPending } = useQuery(rankingQuery(job.id))
   const ranked = (ranking?.evaluations.length ?? 0) > 0
   const [expanded, setExpanded] = useState<boolean | null>(null)
   const [showDescription, setShowDescription] = useState(false)
@@ -181,6 +183,8 @@ function Requirements({ job }: { job: IJob }) {
       onSuccess: () => toast.success(t('jobs.retried')),
       onError: (error) => toast.error(describeError(error)),
     })
+
+  if (isPending) return null
 
   return (
     <section className={styles.section} aria-labelledby="requirements">

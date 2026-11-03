@@ -10,8 +10,7 @@ export const ranking = {
     pick: 'Pick candidates…',
     rank_one: 'Rank {{count}} candidate',
     rank_other: 'Rank {{count}} candidates',
-    rankLoading: 'Rank candidates',
-    upToDate: 'Up to date',
+    rankArea: 'Rank {{area}} candidates',
     scored_one: '{{count}} scored',
     scored_other: '{{count}} scored',
     scoring_one: '{{count}} scoring now',
@@ -46,10 +45,8 @@ export const ranking = {
       'Made for job version {{old}}. Update it to score against version {{current}}.',
     olderPrompt: 'Made with an older prompt. Update it to score again.',
     empty: 'No ranking yet',
-    emptyReady_one:
-      '{{count}} {{area}} candidate is ready to be scored against this job.',
-    emptyReady_other:
-      '{{count}} {{area}} candidates are ready to be scored against this job.',
+    emptyText:
+      'Rank the {{area}} candidates whose resume has been read, or pick some by hand.',
     emptyNone: 'No {{area}} candidate is ready yet.',
     uploadResumes: 'Add resumes',
     loadFailed: 'Could not load the ranking',
@@ -63,7 +60,7 @@ export const ranking = {
     pickDescription:
       'Only candidates whose resume has been read can be ranked. People from other areas are scored too and marked Other area.',
     pickSearch: 'Search candidates',
-    pickSearchPlaceholder: 'Search by name or skill',
+    pickSearchPlaceholder: 'Search by name',
     pickScope: 'Which areas',
     otherAreas: 'Other areas',
     selected_one: '{{count}} selected',
@@ -95,8 +92,7 @@ export const ranking = {
     pick: 'Escolher candidatos…',
     rank_one: 'Ranquear {{count}} candidato',
     rank_other: 'Ranquear {{count}} candidatos',
-    rankLoading: 'Ranquear candidatos',
-    upToDate: 'Em dia',
+    rankArea: 'Ranquear candidatos de {{area}}',
     scored_one: '{{count}} avaliado',
     scored_other: '{{count}} avaliados',
     scoring_one: '{{count}} em avaliação',
@@ -132,10 +128,8 @@ export const ranking = {
       'Feito para a versão {{old}} da vaga. Atualize para avaliar contra a versão {{current}}.',
     olderPrompt: 'Feito com um prompt antigo. Atualize para avaliar de novo.',
     empty: 'Nenhum ranking ainda',
-    emptyReady_one:
-      '{{count}} candidato de {{area}} está pronto para ser avaliado contra esta vaga.',
-    emptyReady_other:
-      '{{count}} candidatos de {{area}} estão prontos para ser avaliados contra esta vaga.',
+    emptyText:
+      'Ranqueie os candidatos de {{area}} com o currículo já lido, ou escolha alguns à mão.',
     emptyNone: 'Nenhum candidato de {{area}} está pronto ainda.',
     uploadResumes: 'Adicionar currículos',
     loadFailed: 'Não foi possível carregar o ranking',
@@ -149,7 +143,7 @@ export const ranking = {
     pickDescription:
       'Só candidatos com o currículo já lido podem ser ranqueados. Pessoas de outras áreas também recebem nota e ficam marcadas como Outra área.',
     pickSearch: 'Buscar candidatos',
-    pickSearchPlaceholder: 'Buscar por nome ou habilidade',
+    pickSearchPlaceholder: 'Buscar por nome',
     pickScope: 'Quais áreas',
     otherAreas: 'Outras áreas',
     selected_one: '{{count}} selecionado',

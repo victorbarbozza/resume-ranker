@@ -165,7 +165,7 @@ describe('GET /api/jobs/:id/evaluations', () => {
       score: 0,
       stale: false,
       otherArea: false,
-      generatedBy: { model: 'fake', promptVersion: 'candidates-evaluate@1' },
+      generatedBy: { model: 'fake', promptVersion: 'candidates-evaluate@2' },
     })
   })
 

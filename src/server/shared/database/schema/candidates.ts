@@ -36,6 +36,7 @@ import {
  * - `contentHash`: sha256 of the uploaded file, computed by the server; unique among live candidates, so uploads are idempotent and a deleted candidate does not block a new upload
  * - `resumeText`: extracted from the file by the worker, null until then; stored whole and read only by the LLM tasks, and truncation only happens when a prompt is built
  * - `areas`: one or two areas extracted by the LLM; a ranking reads the candidates of the job's area
+ * - indexes: the list pages newest first through `(created_at, id)`, and finding one failed resume reads a partial index
  */
 export const candidates = pgTable(
   'candidates',
@@ -68,6 +69,12 @@ export const candidates = pgTable(
       .on(table.contentHash)
       .where(sql`${table.deletedAt} is null`),
     index('idx_candidates_areas').using('gin', table.areas),
+    index('idx_candidates_live_created')
+      .on(table.createdAt.desc(), table.id.desc())
+      .where(sql`${table.deletedAt} is null`),
+    index('idx_candidates_failed')
+      .on(table.createdAt)
+      .where(sql`${table.status} = 'failed' and ${table.deletedAt} is null`),
     check('candidates_status_check', oneOf(table.status, CANDIDATE_STATUSES)),
     check('candidates_areas_check', subsetOf(table.areas, AREAS)),
   ]
