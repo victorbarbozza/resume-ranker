@@ -2,13 +2,12 @@ import { describe, expect, test } from 'bun:test'
 import { Value } from 'typebox/value'
 
 import { generateJson } from '@/server/shared/connectors/llm'
-import { profileWith } from '@/server/test/fixtures'
 
 import {
   candidateProfilePrompt,
   RESUME_PROMPT_MAX_CHARS,
 } from './candidate-extract-profile'
-import { evaluatePrompt, evaluationBatchSchema } from './candidates-evaluate'
+import { assessmentsSchema, evaluatePrompt } from './candidates-evaluate'
 import { jobAnalyzePrompt } from './job-analyze'
 import { buildRequest } from './prompt'
 
@@ -25,24 +24,14 @@ const resume = {
   today: '2026-11-01',
 }
 
-const batch = {
-  job: {
-    ...job,
-    requirements: {
-      mustHave: ['Node.js', 'PostgreSQL'],
-      niceToHave: ['Kafka'],
-    },
-  },
-  candidates: [
-    {
-      id: '6f1c2d8e-0000-4000-8000-000000000001',
-      profile: profileWith(['Node.js', 'PostgreSQL'], 'Builds payment APIs.'),
-    },
-    {
-      id: '6f1c2d8e-0000-4000-8000-000000000002',
-      profile: profileWith(['Python'], 'Writes data pipelines.'),
-    },
+const check = {
+  job: { title: job.title, description: job.description },
+  requirements: [
+    { id: 'm1', text: 'Node.js' },
+    { id: 'm2', text: 'PostgreSQL' },
+    { id: 'n1', text: 'Kafka' },
   ],
+  resumeText: resume.resumeText,
 }
 
 describe('built prompts', () => {
@@ -59,7 +48,7 @@ describe('built prompts', () => {
   })
 
   test('candidates.evaluate', () => {
-    const { system, prompt } = buildRequest(evaluatePrompt, batch)
+    const { system, prompt } = buildRequest(evaluatePrompt, check)
 
     expect({ system, prompt }).toMatchSnapshot()
   })
@@ -113,37 +102,39 @@ describe('uploaded text', () => {
 })
 
 describe('candidates.evaluate schema', () => {
-  const result = {
-    candidateId: 'a',
-    strengths: ['Node.js: 6 years building APIs'],
-    gaps: [],
-    summary: 'Fits the job.',
-    score: 80,
+  const assessment = {
+    requirementId: 'm1',
+    evidence: 'Node.js e PostgreSQL desde 2018',
+    verdict: 'met',
   }
 
-  test('accepts a batch of results', () => {
-    expect(Value.Check(evaluationBatchSchema, { results: [result] })).toBe(true)
+  test('accepts a verdict with its quote, and a missing one without', () => {
+    expect(
+      Value.Check(assessmentsSchema, {
+        assessments: [
+          assessment,
+          { requirementId: 'm2', evidence: null, verdict: 'missing' },
+        ],
+        summary: 'Atende a vaga.',
+      })
+    ).toBe(true)
   })
 
-  test('rejects a score over 100 and a field the schema does not list', () => {
+  test('has no score, and rejects a field the schema does not list', () => {
     expect(
-      Value.Check(evaluationBatchSchema, {
-        results: [{ ...result, score: 140 }],
-      })
-    ).toBe(false)
-    expect(
-      Value.Check(evaluationBatchSchema, {
-        results: [{ ...result, reasoning: 'extra' }],
+      Value.Check(assessmentsSchema, {
+        assessments: [{ ...assessment, score: 80 }],
+        summary: 'Atende a vaga.',
       })
     ).toBe(false)
   })
 
-  test('the score is the last field, so it is written after the evidence', () => {
+  test('the verdict comes after its evidence', () => {
     const fields = Object.keys(
-      evaluationBatchSchema.properties.results.items.properties
+      assessmentsSchema.properties.assessments.items.properties
     )
 
-    expect(fields.at(-1)).toBe('score')
+    expect(fields).toEqual(['requirementId', 'evidence', 'verdict'])
   })
 })
 
@@ -153,12 +144,19 @@ describe('the fake model', () => {
     const profile = await generateJson(
       buildRequest(candidateProfilePrompt, resume)
     )
-    const scores = await generateJson(buildRequest(evaluatePrompt, batch))
+    const verdicts = await generateJson(buildRequest(evaluatePrompt, check))
 
-    expect(analysis.output).toEqual({ mustHave: [], niceToHave: [] })
+    expect(analysis.output.mustHave).toHaveLength(1)
+    expect(analysis.output.experience).toEqual({
+      minYears: null,
+      seniority: null,
+    })
     expect(profile.output.areas).toHaveLength(1)
     expect(
-      scores.output.results.map((result) => [result.candidateId, result.score])
-    ).toEqual(batch.candidates.map(({ id }) => [id, 0]))
+      verdicts.output.assessments.map(({ requirementId, verdict }) => [
+        requirementId,
+        verdict,
+      ])
+    ).toEqual(check.requirements.map(({ id }) => [id, 'missing']))
   })
 })

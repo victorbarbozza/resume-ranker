@@ -5,7 +5,10 @@ import {
   candidates as candidatesTable,
   evaluations as evaluationsTable,
 } from '@/server/shared/database/schema'
-import type { IEvaluation } from '@/server/shared/schemas/evaluation.schema'
+import type {
+  IAssessment,
+  IEvaluation,
+} from '@/server/shared/schemas/evaluation.schema'
 import type { IGeneratedBy } from '@/server/shared/schemas/generated-by.schema'
 import type { Area } from '@/shared/areas'
 
@@ -20,8 +23,7 @@ const toEvaluation = (row: EvaluationRow): IEvaluation => ({
   status: row.status,
   score: row.score,
   summary: row.summary,
-  strengths: row.strengths,
-  gaps: row.gaps,
+  assessments: row.assessments,
   generatedBy:
     row.model && row.promptVersion
       ? { model: row.model, promptVersion: row.promptVersion }
@@ -51,8 +53,7 @@ export const queue = async (
         status: 'queued',
         score: null,
         summary: null,
-        strengths: [],
-        gaps: [],
+        assessments: [],
         model: null,
         promptVersion: null,
         updatedAt: new Date(),
@@ -60,48 +61,42 @@ export const queue = async (
     })
 }
 
-/** The LLM's verdict on one candidate of a batch */
+/** The result of one candidate: the verdicts, the score computed from them and the LLM's summary */
 export type EvaluationResult = {
-  candidateId: string
   score: number
-  summary: string
-  strengths: string[]
-  gaps: string[]
+  summary: string | null
+  assessments: IAssessment[]
 }
 
 /**
- * Saves the results of one batch. A result for a job version that is no
- * longer queued is ignored; the return value counts the rows saved.
+ * Saves the result of one candidate for one job version. Returns false when
+ * that version is no longer the one queued for the candidate.
  */
-export const saveResults = async (
+export const saveResult = async (
   jobId: string,
   jobVersion: number,
+  candidateId: string,
   generatedBy: IGeneratedBy,
-  results: EvaluationResult[]
-): Promise<number> =>
-  db.transaction(async (tx) => {
-    let saved = 0
-    for (const { candidateId, ...result } of results) {
-      const rows = await tx
-        .update(evaluationsTable)
-        .set({
-          ...result,
-          model: generatedBy.model,
-          promptVersion: generatedBy.promptVersion,
-          status: 'done',
-        })
-        .where(
-          and(
-            eq(evaluationsTable.jobId, jobId),
-            eq(evaluationsTable.candidateId, candidateId),
-            eq(evaluationsTable.jobVersion, jobVersion)
-          )
-        )
-        .returning({ candidateId: evaluationsTable.candidateId })
-      saved += rows.length
-    }
-    return saved
-  })
+  result: EvaluationResult
+): Promise<boolean> => {
+  const rows = await db
+    .update(evaluationsTable)
+    .set({
+      ...result,
+      model: generatedBy.model,
+      promptVersion: generatedBy.promptVersion,
+      status: 'done',
+    })
+    .where(
+      and(
+        eq(evaluationsTable.jobId, jobId),
+        eq(evaluationsTable.candidateId, candidateId),
+        eq(evaluationsTable.jobVersion, jobVersion)
+      )
+    )
+    .returning({ candidateId: evaluationsTable.candidateId })
+  return rows.length > 0
+}
 
 /** Marks the still-queued evaluations of a batch as failed */
 export const markFailed = async (

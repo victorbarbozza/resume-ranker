@@ -270,21 +270,102 @@
   gap: 8px;
 }
 
-.point {
+.criteria {
   display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.criteriaGroup {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  font-size: 14px;
-  line-height: 20px;
 }
 
-.point > svg {
-  flex: none;
-  margin-top: 2px;
+.criteriaList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.none {
-  font-size: 14px;
+.criterion {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.verdict {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.met {
+  color: var(--success);
+  background: rgba(26, 127, 55, 0.1);
+}
+
+.partial {
+  color: var(--warning);
+  background: var(--warning-fill);
+}
+
+.missing {
   color: var(--muted);
+  background: var(--fill);
+}
+
+.criterionBody {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.criterionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.criterionText {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--ink);
+}
+
+.weight {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fact {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+}
+
+.evidence {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink-secondary);
+  overflow-wrap: anywhere;
+}
+
+.unfounded {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.criteriaPanel {
+  padding: 16px;
 }
 
 .strength > svg {
@@ -467,25 +548,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.groupRows > li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-height: 48px;
-  padding: 12px 16px;
-  font-size: 17px;
-  line-height: 22px;
-}
-
-.groupRows > li > svg {
-  flex: none;
-  margin-top: 2px;
-}
-
-.groupRows > li + li {
-  border-top: 1px solid var(--separator);
 }
 
 .stepper {

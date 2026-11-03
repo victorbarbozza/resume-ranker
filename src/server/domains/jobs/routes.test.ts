@@ -6,7 +6,12 @@ import { db } from '@/server/shared/connectors/postgres'
 import * as jobsRepo from '@/server/shared/database/repositories/jobs'
 import { tasks } from '@/server/shared/database/schema'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
-import { createJob, generatedBy, signedInHeaders } from '@/server/test/fixtures'
+import {
+  createJob,
+  generatedBy,
+  requirementsWith,
+  signedInHeaders,
+} from '@/server/test/fixtures'
 
 let signedIn: Record<string, string>
 
@@ -98,7 +103,7 @@ describe('PATCH /api/jobs/:id', () => {
     await jobsRepo.saveAnalysis(
       job.id,
       1,
-      { mustHave: ['Node.js'], niceToHave: [] },
+      requirementsWith(['Node.js']),
       generatedBy
     )
 

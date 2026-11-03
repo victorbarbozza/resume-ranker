@@ -26,7 +26,7 @@ import { StatusLabel, Tag } from '@/web/components/status'
 import { rankingQuery } from '@/web/domains/evaluations/queries'
 import { Ranking } from '@/web/domains/evaluations/ranking'
 import { describeError, toApiFailure } from '@/web/lib/api'
-import { areaLabel, timeAgo } from '@/web/lib/format'
+import { areaLabel, experienceAsked, timeAgo } from '@/web/lib/format'
 
 import { JobForm } from './job-form'
 import styles from './job-page.module.css'
@@ -192,7 +192,11 @@ function Requirements({ job }: { job: IJob }) {
         <SectionTitle id="requirements">{t('jobs.requirements')}</SectionTitle>
         {job.requirements && (
           <span className={styles.summary}>
-            {t('jobs.mustCount', { count: job.requirements.mustHave.length })}
+            {t('jobs.mustCount', {
+              count:
+                job.requirements.mustHave.length +
+                (experienceAsked(job.requirements.experience) ? 1 : 0),
+            })}
             {' · '}
             {t('jobs.niceCount', { count: job.requirements.niceToHave.length })}
           </span>
@@ -242,15 +246,36 @@ function Requirements({ job }: { job: IJob }) {
                 <div className={styles.column}>
                   <h3 className={styles.columnTitle}>{t('jobs.mustHave')}</h3>
                   <ul className={styles.list}>
-                    {job.requirements.mustHave.length === 0 && (
-                      <li className={styles.none}>{t('common.noneListed')}</li>
-                    )}
+                    {job.requirements.mustHave.length === 0 &&
+                      !experienceAsked(job.requirements.experience) && (
+                        <li className={styles.none}>
+                          {t('common.noneListed')}
+                        </li>
+                      )}
                     {job.requirements.mustHave.map((requirement) => (
-                      <li key={requirement} className={styles.requirement}>
+                      <li key={requirement.text} className={styles.requirement}>
                         <CheckCircleIcon size={18} />
-                        {requirement}
+                        <span className={styles.requirementText}>
+                          {requirement.text}
+                        </span>
+                        <span className={styles.importance}>
+                          {requirement.importance === 'primary'
+                            ? t('common.primary')
+                            : t('common.secondary')}
+                        </span>
                       </li>
                     ))}
+                    {experienceAsked(job.requirements.experience) && (
+                      <li className={styles.requirement}>
+                        <CheckCircleIcon size={18} />
+                        <span className={styles.requirementText}>
+                          {experienceAsked(job.requirements.experience)}
+                        </span>
+                        <span className={styles.importance}>
+                          {t('common.primary')}
+                        </span>
+                      </li>
+                    )}
                   </ul>
                 </div>
                 <div className={styles.column}>

@@ -1,7 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
-import { createJob, generatedBy } from '@/server/test/fixtures'
+import {
+  createJob,
+  generatedBy,
+  requirementsWith,
+} from '@/server/test/fixtures'
 import type { Area } from '@/shared/areas'
 
 import * as jobsRepo from './jobs'
@@ -9,7 +13,7 @@ import * as jobsRepo from './jobs'
 beforeAll(prepareTestDatabase)
 beforeEach(resetDatabase)
 
-const requirements = { mustHave: ['Node.js'], niceToHave: ['Kubernetes'] }
+const requirements = requirementsWith(['Node.js'], ['Kubernetes'])
 
 describe('jobs repository', () => {
   test('creates a pending job at version 1 with no requirements', async () => {

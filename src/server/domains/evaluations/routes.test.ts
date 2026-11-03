@@ -13,9 +13,10 @@ import { candidatesEvaluatePayloadSchema } from '@/server/shared/schemas/task.sc
 import { handlers } from '@/server/tasks/handlers'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import {
+  createAnalyzedJob,
   createJob,
   createReadyCandidate,
-  generatedBy,
+  requirementsWith,
   signedInHeaders,
 } from '@/server/test/fixtures'
 
@@ -42,16 +43,7 @@ const ranking = async (jobId: string) =>
 const evaluateTasks = () =>
   db.select().from(tasks).where(eq(tasks.type, 'candidates.evaluate'))
 
-const readyJob = async () => {
-  const job = await createJob()
-  await jobsRepo.saveAnalysis(
-    job.id,
-    1,
-    { mustHave: ['Node.js'], niceToHave: [] },
-    generatedBy
-  )
-  return job
-}
+const readyJob = () => createAnalyzedJob()
 
 const runQueuedTasks = async () => {
   for (
@@ -64,7 +56,7 @@ const runQueuedTasks = async () => {
 }
 
 describe('POST /api/jobs/:id/evaluations', () => {
-  test('queues every ready candidate of the area in batches of five', async () => {
+  test('queues every ready candidate of the area, one task each', async () => {
     const job = await readyJob()
     for (let i = 0; i < 7; i++) await createReadyCandidate({})
     await createReadyCandidate({ areas: ['data'] })
@@ -77,14 +69,12 @@ describe('POST /api/jobs/:id/evaluations', () => {
       alreadyCurrent: 0,
       skipped: [],
       leftOut: 0,
-      analysisFailed: false,
     })
-    const batches = (await evaluateTasks()).map(
+    const queued = (await evaluateTasks()).map(
       (task) =>
-        Value.Parse(candidatesEvaluatePayloadSchema, task.payload).candidateIds
-          .length
+        Value.Parse(candidatesEvaluatePayloadSchema, task.payload).candidateId
     )
-    expect(batches.sort()).toEqual([2, 5])
+    expect(new Set(queued).size).toBe(7)
   })
 
   test('says how many the limit of 50 left out', async () => {
@@ -119,21 +109,24 @@ describe('POST /api/jobs/:id/evaluations', () => {
     expect(summary).toMatchObject({ queued: 1, skipped: [unknown] })
   })
 
-  test('answers 409 while the job is being analysed, and ranks a job whose analysis failed', async () => {
+  test('answers 409 while the job is being analysed, or when it has no requirements to check', async () => {
     const pending = await createJob()
     const failed = await createJob()
     await jobsRepo.markAnalysisFailed(failed.id, 1)
+    const empty = await createAnalyzedJob(requirementsWith([]))
     await createReadyCandidate({})
 
     const whilePending = await rank(pending.id, { scope: 'area' })
     const afterFailure = await rank(failed.id, { scope: 'area' })
+    const withoutRequirements = await rank(empty.id, { scope: 'area' })
 
     expect(whilePending.status).toBe(409)
     expect((await whilePending.json()).error).toBe('JOB_NOT_ANALYZED')
-    expect(await afterFailure.json()).toMatchObject({
-      queued: 1,
-      analysisFailed: true,
-    })
+    expect((await afterFailure.json()).error).toBe('JOB_HAS_NO_REQUIREMENTS')
+    expect((await withoutRequirements.json()).error).toBe(
+      'JOB_HAS_NO_REQUIREMENTS'
+    )
+    expect(await evaluateTasks()).toEqual([])
   })
 
   test('answers 404 for an unknown job and 400 for an unknown scope', async () => {
@@ -165,7 +158,7 @@ describe('GET /api/jobs/:id/evaluations', () => {
       score: 0,
       stale: false,
       otherArea: false,
-      generatedBy: { model: 'fake', promptVersion: 'candidates-evaluate@2' },
+      generatedBy: { model: 'fake', promptVersion: 'candidates-evaluate@3' },
     })
   })
 
