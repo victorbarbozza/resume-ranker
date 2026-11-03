@@ -3,6 +3,7 @@ import {
   check,
   index,
   integer,
+  smallint,
   jsonb,
   pgTable,
   text,
@@ -24,10 +25,11 @@ import { createdAt, oneOf, updatedAt } from './columns'
 
 /**
  * The work queue. A task is inserted in the same transaction as the row it
- * refers to; a partial index on run_at serves the claim query, which only reads
- * queued tasks, and a partial unique index keeps at most one pending task of
+ * refers to; a partial index on priority and run_at serves the claim query,
+ * which only reads queued tasks, and a partial unique index keeps at most one pending task of
  * each recurring type.
  *
+ * - `priority`: from the task type's settings; ready tasks run highest first, then oldest first
  * - `runAt`: not claimed before this moment; retries and rate limits push it forward
  */
 export const tasks = pgTable(
@@ -43,6 +45,7 @@ export const tasks = pgTable(
       .notNull()
       .default('queued'),
     attempts: integer('attempts').notNull().default(0),
+    priority: smallint('priority').notNull().default(0),
     runAt: timestamp('run_at', { withTimezone: true }).notNull().defaultNow(),
     lockedAt: timestamp('locked_at', { withTimezone: true }),
     lastError: text('last_error'),
@@ -50,8 +53,8 @@ export const tasks = pgTable(
     updatedAt: updatedAt(),
   },
   (table) => [
-    index('idx_tasks_queued_run_at')
-      .on(table.runAt)
+    index('idx_tasks_queued_priority_run_at')
+      .on(table.priority.desc(), table.runAt)
       .where(sql`${table.status} = 'queued'`),
     uniqueIndex('tasks_one_pending_recurring')
       .on(table.type)

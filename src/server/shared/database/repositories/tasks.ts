@@ -1,11 +1,12 @@
-import { and, eq, inArray, lt, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, lt, lte, sql } from 'drizzle-orm'
 
 import { db, type Executor } from '@/server/shared/connectors/postgres'
 import { tasks as tasksTable } from '@/server/shared/database/schema'
-import type {
-  ITask,
-  TaskPayloads,
-  TaskType,
+import {
+  type ITask,
+  TASKS,
+  type TaskPayloads,
+  type TaskType,
 } from '@/server/shared/schemas/task.schema'
 
 /** A tasks row as Drizzle returns it */
@@ -41,7 +42,7 @@ export const enqueue = async <Type extends TaskType>(
 ): Promise<ITask> => {
   const [row] = await executor
     .insert(tasksTable)
-    .values({ type, payload })
+    .values({ type, payload, priority: TASKS[type].priority })
     .returning()
   return toTask(row)
 }
@@ -56,7 +57,12 @@ export const scheduleRecurring = async (
 ): Promise<boolean> => {
   const rows = await db
     .insert(tasksTable)
-    .values({ type, payload: {}, runAt: fromNow(delayMs) })
+    .values({
+      type,
+      payload: {},
+      priority: TASKS[type].priority,
+      runAt: fromNow(delayMs),
+    })
     .onConflictDoNothing()
     .returning({ id: tasksTable.id })
   return rows.length > 0
@@ -69,9 +75,9 @@ export const findById = async (id: string): Promise<ITask | undefined> => {
 }
 
 /**
- * Claims the oldest queued task whose time has come and marks it running.
- * `FOR UPDATE SKIP LOCKED` makes concurrent workers skip a row another one is
- * claiming, so no task is ever handed out twice. Every claim bumps the
+ * Claims the queued task whose time has come with the highest priority, the
+ * oldest first among equals, and marks it running. `FOR UPDATE SKIP LOCKED`
+ * makes concurrent claims skip a row another one is claiming, so no task is ever handed out twice. Every claim bumps the
  * attempts.
  */
 export const claimNext = async (): Promise<ITask | undefined> => {
@@ -81,7 +87,7 @@ export const claimNext = async (): Promise<ITask | undefined> => {
     .where(
       and(eq(tasksTable.status, 'queued'), lte(tasksTable.runAt, sql`now()`))
     )
-    .orderBy(tasksTable.runAt)
+    .orderBy(desc(tasksTable.priority), tasksTable.runAt)
     .limit(1)
     .for('update', { skipLocked: true })
 

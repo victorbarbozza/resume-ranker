@@ -180,6 +180,16 @@ describe('runWorker', () => {
     schedule.mockRestore()
   })
 
+  test('claims the task a person waits for before the background backlog', async () => {
+    await enqueueProfile()
+    const analysis = await tasksRepo.enqueue('job.analyze', {
+      jobId: crypto.randomUUID(),
+      version: 1,
+    })
+
+    expect((await tasksRepo.claimNext())?.id).toBe(analysis.id)
+  })
+
   test('keeps maintenance scheduled and runs it along with the other tasks', async () => {
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60_000)
     await rateLimitsRepo.increment('login:203.0.113.7', twoHoursAgo)
