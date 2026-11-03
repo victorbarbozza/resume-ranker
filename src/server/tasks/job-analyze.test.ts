@@ -22,7 +22,16 @@ describe('job.analyze handler', () => {
 
     expect(await jobsRepo.findById(job.id)).toMatchObject({
       status: 'ready',
-      requirements: { mustHave: [], niceToHave: [] },
+      requirements: {
+        mustHave: [
+          {
+            text: 'Placeholder requirement from the fake model',
+            importance: 'primary',
+          },
+        ],
+        niceToHave: [],
+        experience: { minYears: null, seniority: null },
+      },
       requirementsGeneratedBy: { model: 'fake' },
     })
   })

@@ -4,8 +4,8 @@ export const ranking = {
     title: 'Ranking',
     subtitle: 'Best match first. Select a row to see why.',
     subtitlePhone: 'Best match first. Tap a candidate to see why.',
-    subtitleRaw:
-      'Scored against the raw description, so results are less precise.',
+    noRequirements:
+      'This job has no requirements to rank against. Read its description again or edit it.',
     waitingRequirements: 'You can rank once the description is read.',
     pick: 'Pick candidates…',
     rank_one: 'Rank {{count}} candidate',
@@ -38,8 +38,14 @@ export const ranking = {
     srStrength: 'Strength:',
     srGap: 'Gap:',
     summary: 'Summary',
-    strengths: 'Strengths',
-    gaps: 'Gaps',
+    experience: 'Experience',
+    verdictMet: 'Meets',
+    verdictPartial: 'Partly',
+    verdictMissing: 'Missing',
+    hasExperience_one: 'Has {{count}} year, {{level}}.',
+    hasExperience_other: 'Has {{count}} years, {{level}}.',
+    evidenceNotFound:
+      'The model quoted a passage the resume does not have, so this counts as missing:',
     provenance: 'Model {{model}} · prompt {{prompt}} · job version {{version}}',
     madeForVersion:
       'Made for job version {{old}}. Update it to score against version {{current}}.',
@@ -86,8 +92,8 @@ export const ranking = {
       'Melhor resultado primeiro. Selecione uma linha para ver o porquê.',
     subtitlePhone:
       'Melhor resultado primeiro. Toque num candidato para ver o porquê.',
-    subtitleRaw:
-      'Avaliado contra a descrição original, então o resultado é menos preciso.',
+    noRequirements:
+      'Esta vaga não tem requisitos para ranquear. Leia a descrição de novo ou edite a vaga.',
     waitingRequirements: 'Dá para ranquear quando a descrição for lida.',
     pick: 'Escolher candidatos…',
     rank_one: 'Ranquear {{count}} candidato',
@@ -120,8 +126,14 @@ export const ranking = {
     srStrength: 'Ponto forte:',
     srGap: 'Lacuna:',
     summary: 'Resumo',
-    strengths: 'Pontos fortes',
-    gaps: 'Lacunas',
+    experience: 'Experiência',
+    verdictMet: 'Atende',
+    verdictPartial: 'Parcial',
+    verdictMissing: 'Não atende',
+    hasExperience_one: 'Tem {{count}} ano, {{level}}.',
+    hasExperience_other: 'Tem {{count}} anos, {{level}}.',
+    evidenceNotFound:
+      'O modelo citou um trecho que não está no currículo, então conta como não atende:',
     provenance:
       'Modelo {{model}} · prompt {{prompt}} · vaga versão {{version}}',
     madeForVersion:

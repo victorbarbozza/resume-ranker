@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 
+import type { IAssessment } from '@/server/shared/schemas/evaluation.schema'
 import { prepareTestDatabase, resetDatabase } from '@/server/test/database'
 import { createCandidate, createJob, generatedBy } from '@/server/test/fixtures'
 
@@ -8,12 +9,21 @@ import * as evaluationsRepo from './evaluations'
 beforeAll(prepareTestDatabase)
 beforeEach(resetDatabase)
 
-const result = (candidateId: string, score: number) => ({
-  candidateId,
+const assessment: IAssessment = {
+  criterion: 'm1',
+  group: 'mustHave',
+  weight: 2,
+  requirement: 'Node.js',
+  verdict: 'met',
+  evidence: '8 anos de Node.js',
+  evidenceNotFound: false,
+  experience: null,
+}
+
+const result = (score: number) => ({
   score,
   summary: 'Strong match on the backend requirements.',
-  strengths: ['8 years of Node.js'],
-  gaps: ['No Kubernetes'],
+  assessments: [assessment],
 })
 
 describe('evaluations repository', () => {
@@ -39,21 +49,31 @@ describe('evaluations repository', () => {
     const stronger = await createCandidate()
     await evaluationsRepo.queue(job.id, 1, [weaker.id, stronger.id])
 
-    const saved = await evaluationsRepo.saveResults(job.id, 1, generatedBy, [
-      result(weaker.id, 61),
-      result(stronger.id, 92),
-    ])
+    expect(
+      await evaluationsRepo.saveResult(
+        job.id,
+        1,
+        weaker.id,
+        generatedBy,
+        result(61)
+      )
+    ).toBe(true)
+    await evaluationsRepo.saveResult(
+      job.id,
+      1,
+      stronger.id,
+      generatedBy,
+      result(92)
+    )
     const evaluations = await evaluationsRepo.listByJob(job.id)
 
-    expect(saved).toBe(2)
     expect(evaluations.map((e) => [e.candidateId, e.score, e.status])).toEqual([
       [stronger.id, 92, 'done'],
       [weaker.id, 61, 'done'],
     ])
     expect(evaluations[0]).toMatchObject({
       generatedBy,
-      strengths: ['8 years of Node.js'],
-      gaps: ['No Kubernetes'],
+      assessments: [assessment],
     })
   })
 
@@ -61,14 +81,18 @@ describe('evaluations repository', () => {
     const job = await createJob()
     const candidate = await createCandidate()
     await evaluationsRepo.queue(job.id, 1, [candidate.id])
-    await evaluationsRepo.saveResults(job.id, 1, generatedBy, [
-      result(candidate.id, 80),
-    ])
+    await evaluationsRepo.saveResult(
+      job.id,
+      1,
+      candidate.id,
+      generatedBy,
+      result(80)
+    )
 
     await evaluationsRepo.queue(job.id, 2, [candidate.id])
 
     expect(await evaluationsRepo.listByJob(job.id)).toMatchObject([
-      { jobVersion: 2, status: 'queued', score: null, strengths: [], gaps: [] },
+      { jobVersion: 2, status: 'queued', score: null, assessments: [] },
     ])
   })
 
@@ -77,11 +101,15 @@ describe('evaluations repository', () => {
     const candidate = await createCandidate()
     await evaluationsRepo.queue(job.id, 2, [candidate.id])
 
-    const saved = await evaluationsRepo.saveResults(job.id, 1, generatedBy, [
-      result(candidate.id, 75),
-    ])
+    const saved = await evaluationsRepo.saveResult(
+      job.id,
+      1,
+      candidate.id,
+      generatedBy,
+      result(75)
+    )
 
-    expect(saved).toBe(0)
+    expect(saved).toBe(false)
     expect((await evaluationsRepo.listByJob(job.id))[0].status).toBe('queued')
   })
 
@@ -90,9 +118,13 @@ describe('evaluations repository', () => {
     const done = await createCandidate()
     const pending = await createCandidate()
     await evaluationsRepo.queue(job.id, 1, [done.id, pending.id])
-    await evaluationsRepo.saveResults(job.id, 1, generatedBy, [
-      result(done.id, 70),
-    ])
+    await evaluationsRepo.saveResult(
+      job.id,
+      1,
+      done.id,
+      generatedBy,
+      result(70)
+    )
 
     await evaluationsRepo.markFailed(job.id, 1, [done.id, pending.id])
     const statuses = Object.fromEntries(
@@ -111,9 +143,13 @@ describe('evaluations repository', () => {
     await evaluationsRepo.queue(job.id, 1, [candidate.id])
 
     await expect(
-      evaluationsRepo.saveResults(job.id, 1, generatedBy, [
-        result(candidate.id, 101),
-      ])
+      evaluationsRepo.saveResult(
+        job.id,
+        1,
+        candidate.id,
+        generatedBy,
+        result(101)
+      )
     ).rejects.toThrow()
   })
 })

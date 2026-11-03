@@ -9,8 +9,7 @@ import type { ICandidate } from '@/server/shared/schemas/candidate.schema'
 import type { IJob } from '@/server/shared/schemas/job.schema'
 import { evaluatePrompt } from '@/server/tasks/prompts/candidates-evaluate'
 
-/** Candidates the worker scores in one LLM call */
-const BATCH_SIZE = 5
+import { criteriaOf } from './scoring'
 
 /** Which candidates a ranking scores: every ready one of the job's area, or the ones picked by hand */
 export type RankRequest =
@@ -22,14 +21,12 @@ export type RankRequest =
  * - `alreadyCurrent`: candidates skipped because they have a result for this job version and prompt, or are queued for it
  * - `skipped`: picked ids that are not live, ready candidates
  * - `leftOut`: ready candidates of the area the limit kept out
- * - `analysisFailed`: the job has no requirements, so candidates are scored against its raw description and results are poorer
  */
 export type RankSummary = {
   queued: number
   alreadyCurrent: number
   skipped: string[]
   leftOut: number
-  analysisFailed: boolean
 }
 
 /** A live job, or the 404 the ranking routes answer */
@@ -45,10 +42,10 @@ const findJob = async (jobId: string): Promise<IJob> => {
 }
 
 /**
- * Queues the candidates of a ranking for the LLM, in batches of five, with
- * their evaluations and tasks in one transaction. A job still being analysed
- * answers 409; a job whose analysis failed is still ranked, against its raw
- * description. Candidates with a current result are not sent again.
+ * Queues the candidates of a ranking, one task per candidate, with their
+ * evaluations and tasks in one transaction. A job still being analysed, or
+ * one with no requirements to check, such as one whose analysis failed,
+ * answers 409. Candidates with a current result are not sent again.
  */
 export const rankJob = async (
   jobId: string,
@@ -61,6 +58,15 @@ export const rankJob = async (
       {
         statusCode: 409,
         code: 'JOB_NOT_ANALYZED',
+      }
+    )
+  }
+  if (!job.requirements || criteriaOf(job.requirements).length === 0) {
+    throw new HTTPError(
+      'the job has no requirements to rank against; retry its analysis or edit the job',
+      {
+        statusCode: 409,
+        code: 'JOB_HAS_NO_REQUIREMENTS',
       }
     )
   }
@@ -92,14 +98,10 @@ export const rankJob = async (
 
   await db.transaction(async (tx) => {
     await evaluationsRepo.queue(job.id, job.version, ids, tx)
-    for (let start = 0; start < ids.length; start += BATCH_SIZE) {
+    for (const candidateId of ids) {
       await tasksRepo.enqueue(
         'candidates.evaluate',
-        {
-          jobId: job.id,
-          jobVersion: job.version,
-          candidateIds: ids.slice(start, start + BATCH_SIZE),
-        },
+        { jobId: job.id, jobVersion: job.version, candidateId },
         tx
       )
     }
@@ -110,7 +112,6 @@ export const rankJob = async (
     alreadyCurrent: candidates.length - ids.length,
     skipped,
     leftOut,
-    analysisFailed: job.status === 'failed',
   }
 }
 
@@ -127,7 +128,6 @@ export type RankedEvaluation = evaluationsRepo.EvaluationWithCandidate & {
 
 /** The ranking of a job: progress counts and every evaluation, best score first */
 export type Ranking = {
-  analysisFailed: boolean
   progress: { queued: number; done: number; failed: number }
   evaluations: RankedEvaluation[]
 }
@@ -147,5 +147,5 @@ export const getRanking = async (jobId: string): Promise<Ranking> => {
   }))
   const progress = { queued: 0, done: 0, failed: 0 }
   for (const row of rows) progress[row.status] += 1
-  return { analysisFailed: job.status === 'failed', progress, evaluations }
+  return { progress, evaluations }
 }

@@ -4,12 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/web/components/button'
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  MinusIcon,
-  PlusIcon,
-} from '@/web/components/icons'
+import { ChevronLeftIcon, ChevronRightIcon } from '@/web/components/icons'
 import {
   EmptyState,
   Note,
@@ -23,13 +18,14 @@ import { jobQuery } from '@/web/domains/jobs/queries'
 import { describeError } from '@/web/lib/api'
 import { areaLabel, displayName } from '@/web/lib/format'
 
+import { AssessmentList } from './assessments'
 import styles from './evaluations.module.css'
 import { rankingQuery, useRank } from './queries'
 import { provenance } from './ranking'
 
 /**
  * One result on its own screen, as a phone opens a ranking row: the score and
- * the summary, then the strengths and gaps behind it. Previous and Next walk
+ * the summary, then the verdict on each requirement behind it. Previous and Next walk
  * the ranking in order without going back to it. A stale or failed result can
  * be scored again from here.
  */
@@ -189,45 +185,15 @@ export function ResultPage({
         )}
       </Panel>
 
-      {evaluation.status === 'done' && (
-        <>
-          <section className={styles.group} aria-labelledby="strengths">
-            <h2 id="strengths" className={styles.label}>
-              {t('ranking.strengths')}
-            </h2>
-            <Panel>
-              <ul className={styles.groupRows}>
-                {evaluation.strengths.length === 0 && (
-                  <li className={styles.none}>{t('common.noneListed')}</li>
-                )}
-                {evaluation.strengths.map((strength) => (
-                  <li key={strength} className={styles.strength}>
-                    <PlusIcon size={18} />
-                    {strength}
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          </section>
-          <section className={styles.group} aria-labelledby="gaps">
-            <h2 id="gaps" className={styles.label}>
-              {t('ranking.gaps')}
-            </h2>
-            <Panel>
-              <ul className={styles.groupRows}>
-                {evaluation.gaps.length === 0 && (
-                  <li className={styles.none}>{t('common.noneListed')}</li>
-                )}
-                {evaluation.gaps.map((gap) => (
-                  <li key={gap} className={styles.gap}>
-                    <MinusIcon size={18} />
-                    {gap}
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          </section>
-        </>
+      {evaluation.assessments.length > 0 && (
+        <section className={styles.group} aria-labelledby="criteria">
+          <h2 id="criteria" className={styles.label}>
+            {t('jobs.requirements')}
+          </h2>
+          <Panel className={styles.criteriaPanel}>
+            <AssessmentList assessments={evaluation.assessments} />
+          </Panel>
+        </section>
       )}
 
       {(before || after) && (

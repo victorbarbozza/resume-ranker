@@ -15,6 +15,7 @@ import {
 import {
   EVALUATION_STATUSES,
   type EvaluationStatus,
+  type IAssessment,
 } from '@/server/shared/schemas/evaluation.schema'
 
 import { candidates } from './candidates'
@@ -27,7 +28,11 @@ import {
 } from './columns'
 import { jobs } from './jobs'
 
-/** The link between a job and a candidate: one current result per pair */
+/**
+ * The link between a job and a candidate: one current result per pair.
+ *
+ * - `assessments`: one verdict per criterion of the job; `score` is computed from them
+ */
 export const evaluations = pgTable(
   'evaluations',
   {
@@ -44,8 +49,10 @@ export const evaluations = pgTable(
       .default('queued'),
     score: smallint('score'),
     summary: text('summary'),
-    strengths: jsonb('strengths').$type<string[]>().notNull().default([]),
-    gaps: jsonb('gaps').$type<string[]>().notNull().default([]),
+    assessments: jsonb('assessments')
+      .$type<IAssessment[]>()
+      .notNull()
+      .default([]),
     model: modelColumn('model'),
     promptVersion: promptVersionColumn('prompt_version'),
     createdAt: createdAt(),

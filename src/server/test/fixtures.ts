@@ -10,6 +10,7 @@ import type {
   ICandidateProfile,
 } from '@/server/shared/schemas/candidate.schema'
 import type { IGeneratedBy } from '@/server/shared/schemas/generated-by.schema'
+import type { IJobRequirements } from '@/server/shared/schemas/job.schema'
 import type { IUser } from '@/server/shared/schemas/user.schema'
 import type { Area } from '@/shared/areas'
 
@@ -47,6 +48,29 @@ export const signedInHeaders = async (): Promise<Record<string, string>> => {
   return { Cookie: `session=${token}`, Origin: 'http://localhost' }
 }
 
+/** Job requirements: primary must-haves, the nice-to-haves and the experience asked, none unless given */
+export const requirementsWith = (
+  mustHave: string[],
+  niceToHave: string[] = [],
+  experience: IJobRequirements['experience'] = {
+    minYears: null,
+    seniority: null,
+  }
+): IJobRequirements => ({
+  mustHave: mustHave.map((text) => ({ text, importance: 'primary' })),
+  niceToHave,
+  experience,
+})
+
+/** An engineering job analysed into the requirements, at version 1 */
+export const createAnalyzedJob = async (
+  requirements: IJobRequirements = requirementsWith(['Node.js'])
+) => {
+  const job = await createJob()
+  await jobsRepo.saveAnalysis(job.id, 1, requirements, generatedBy)
+  return job
+}
+
 /** A pending engineering job; override any field */
 export const createJob = (overrides: Partial<jobsRepo.CreateJobInput> = {}) =>
   jobsRepo.create({
@@ -81,14 +105,23 @@ export const profileWith = (
   summary,
 })
 
-/** A candidate whose profile is extracted, so a ranking can pick it up */
+/** The resume text ready candidates have unless a test gives its own */
+export const RESUME_TEXT =
+  'Engenheira de backend. Node.js e PostgreSQL desde 2018, APIs de pagamento.'
+
+/** A candidate whose text and profile are extracted, so a ranking can pick it up */
 export const createReadyCandidate = async (input: {
   name?: string
   skills?: string[]
   summary?: string
   areas?: Area[]
+  resumeText?: string
 }): Promise<string> => {
   const candidate = await createCandidate()
+  await candidatesRepo.saveResumeText(
+    candidate.id,
+    input.resumeText ?? RESUME_TEXT
+  )
   await candidatesRepo.saveProfile(candidate.id, {
     name: input.name ?? null,
     profile: profileWith(input.skills ?? [], input.summary),

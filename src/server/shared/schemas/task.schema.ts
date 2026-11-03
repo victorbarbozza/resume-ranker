@@ -56,11 +56,11 @@ export const candidateExtractProfilePayloadSchema = Type.Object({
   candidateId: Type.String({ format: 'uuid' }),
 })
 
-/** Payload of candidates.evaluate: one batch for one job version */
+/** Payload of candidates.evaluate: one candidate for one job version */
 export const candidatesEvaluatePayloadSchema = Type.Object({
   jobId: Type.String({ format: 'uuid' }),
   jobVersion: Type.Integer({ minimum: 1 }),
-  candidateIds: Type.Array(Type.String({ format: 'uuid' }), { minItems: 1 }),
+  candidateId: Type.String({ format: 'uuid' }),
 })
 
 /** Payload of maintenance.cleanup, which needs none */

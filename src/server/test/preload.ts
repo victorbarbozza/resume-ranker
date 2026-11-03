@@ -13,4 +13,3 @@ process.env.DATABASE_URL =
 process.env.LLM_MODEL = 'fake'
 process.env.STORAGE_DRIVER = 'fs'
 process.env.STORAGE_DIR = join(tmpdir(), 'resume-ranker-test-files')
-delete process.env.LLM_RPM

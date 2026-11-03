@@ -29,9 +29,23 @@ import { describeError } from '@/web/lib/api'
 import { areaLabel, displayName } from '@/web/lib/format'
 import { PHONE_QUERY, useMediaQuery } from '@/web/lib/use-media-query'
 
+import {
+  AssessmentList,
+  criterionLabel,
+  gapsOf,
+  strengthsOf,
+} from './assessments'
 import { CandidatePicker } from './candidate-picker'
 import styles from './evaluations.module.css'
 import { rankingQuery, useRank } from './queries'
+
+/** Whether a job has anything to rank against: a requirement, or the experience it asks for */
+export const hasCriteria = (job: IJob) =>
+  job.requirements !== null &&
+  (job.requirements.mustHave.length > 0 ||
+    job.requirements.niceToHave.length > 0 ||
+    job.requirements.experience.minYears !== null ||
+    job.requirements.experience.seniority !== null)
 
 /** Who and what produced a result, or why it needs an update */
 export const provenance = (evaluation: RankedEvaluation, job: IJob) => {
@@ -81,6 +95,7 @@ export function Ranking({ job }: { job: IJob }) {
     .filter((evaluation) => evaluation.stale || evaluation.status === 'failed')
     .map((evaluation) => evaluation.candidate.id)
   const analysing = job.status === 'pending'
+  const rankable = hasCriteria(job)
   const scored = evaluations.filter(
     (evaluation) => evaluation.status === 'done'
   )
@@ -108,8 +123,8 @@ export function Ranking({ job }: { job: IJob }) {
 
   const subtitle = analysing
     ? t('ranking.waitingRequirements')
-    : job.status === 'failed'
-      ? t('ranking.subtitleRaw')
+    : !rankable
+      ? t('ranking.noRequirements')
       : phone
         ? t('ranking.subtitlePhone')
         : t('ranking.subtitle')
@@ -122,12 +137,15 @@ export function Ranking({ job }: { job: IJob }) {
           <p className={styles.subtitle}>{subtitle}</p>
         </div>
         <div className={styles.actions}>
-          <Button disabled={analysing} onClick={() => setPicking(true)}>
+          <Button
+            disabled={analysing || !rankable}
+            onClick={() => setPicking(true)}
+          >
             {t('ranking.pick')}
           </Button>
           <Button
             variant="primary"
-            disabled={analysing}
+            disabled={analysing || !rankable}
             loading={rank.isPending && rank.variables?.scope === 'area'}
             onClick={rankArea}
           >
@@ -169,7 +187,7 @@ export function Ranking({ job }: { job: IJob }) {
             <Button
               size="small"
               variant="tinted"
-              disabled={analysing}
+              disabled={analysing || !rankable}
               loading={rank.isPending && rank.variables?.scope === 'selected'}
               onClick={updateOutdated}
             >
@@ -351,8 +369,8 @@ function Why({ evaluation }: { evaluation: RankedEvaluation }) {
   if (evaluation.status === 'failed') {
     return <span className={styles.why}>{t('ranking.noAnswer')}</span>
   }
-  const strength = evaluation.strengths[0]
-  const gap = evaluation.gaps[0]
+  const [strength] = strengthsOf(evaluation.assessments)
+  const [gap] = gapsOf(evaluation.assessments)
   if (!strength && !gap) {
     return (
       <span className={styles.why}>
@@ -366,21 +384,21 @@ function Why({ evaluation }: { evaluation: RankedEvaluation }) {
         <span className={`${styles.reason} ${styles.strength}`}>
           <PlusIcon size={14} />
           <span className="visually-hidden">{t('ranking.srStrength')}</span>
-          <span className={styles.reasonText}>{strength}</span>
+          <span className={styles.reasonText}>{criterionLabel(strength)}</span>
         </span>
       )}
       {gap && (
         <span className={`${styles.reason} ${styles.gap}`}>
           <MinusIcon size={14} />
           <span className="visually-hidden">{t('ranking.srGap')}</span>
-          <span className={styles.reasonText}>{gap}</span>
+          <span className={styles.reasonText}>{criterionLabel(gap)}</span>
         </span>
       )}
     </span>
   )
 }
 
-/** The summary, strengths and gaps behind one score, as a row shows them when opened */
+/** The summary and the verdict on each requirement behind one score, as a row shows them when opened */
 function ResultDetail({
   evaluation,
   job,
@@ -401,34 +419,11 @@ function ResultDetail({
         </p>
         <Note>{provenance(evaluation, job)}</Note>
       </div>
-      <div className={styles.detailColumn}>
-        <h4 className={styles.label}>{t('ranking.strengths')}</h4>
-        <ul className={styles.group}>
-          {evaluation.strengths.length === 0 && (
-            <li className={styles.none}>{t('common.noneListed')}</li>
-          )}
-          {evaluation.strengths.map((strength) => (
-            <li key={strength} className={`${styles.point} ${styles.strength}`}>
-              <PlusIcon size={16} />
-              {strength}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className={styles.detailColumn}>
-        <h4 className={styles.label}>{t('ranking.gaps')}</h4>
-        <ul className={styles.group}>
-          {evaluation.gaps.length === 0 && (
-            <li className={styles.none}>{t('common.noneListed')}</li>
-          )}
-          {evaluation.gaps.map((gap) => (
-            <li key={gap} className={`${styles.point} ${styles.gap}`}>
-              <MinusIcon size={16} />
-              {gap}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {evaluation.assessments.length > 0 && (
+        <div className={`${styles.detailColumn} ${styles.detailWide}`}>
+          <AssessmentList assessments={evaluation.assessments} />
+        </div>
+      )}
     </div>
   )
 }

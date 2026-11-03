@@ -1,5 +1,6 @@
 import { type Static, Type } from 'typebox'
 
+import { SENIORITIES } from '@/server/shared/schemas/candidate.schema'
 import { generatedBySchema } from '@/server/shared/schemas/generated-by.schema'
 import { AREAS } from '@/shared/areas'
 import {
@@ -12,17 +13,51 @@ export const JOB_STATUSES = ['pending', 'ready', 'failed'] as const
 /** One of JOB_STATUSES */
 export type JobStatus = (typeof JOB_STATUSES)[number]
 
-/** Requirements the LLM extracts from a job description */
+/** How much a must-have weighs: what the job centres on, or the rest */
+export const REQUIREMENT_IMPORTANCES = ['primary', 'secondary'] as const
+/** One of REQUIREMENT_IMPORTANCES */
+export type RequirementImportance = (typeof REQUIREMENT_IMPORTANCES)[number]
+
+/**
+ * Requirements the LLM extracts from a job description. The general
+ * experience the job asks for stays out of the lists: the code checks it
+ * against the candidate's profile.
+ */
 export const jobRequirementsSchema = Type.Object(
   {
-    mustHave: Type.Array(Type.String(), {
-      description:
-        'What the job states as required, one requirement per item, such as "5+ years of Node.js"',
-    }),
+    mustHave: Type.Array(
+      Type.Object(
+        {
+          text: Type.String({
+            description:
+              'One requirement, such as "Node.js" or "5+ anos de Node.js"',
+          }),
+          importance: Type.Enum(REQUIREMENT_IMPORTANCES, {
+            description:
+              'primary for what the job centres on, secondary for the rest',
+          }),
+        },
+        { additionalProperties: false }
+      ),
+      { description: 'What the job states as required, one per item' }
+    ),
     niceToHave: Type.Array(Type.String(), {
       description:
         'What the job marks as a plus, preferred or desirable, one per item',
     }),
+    experience: Type.Object(
+      {
+        minYears: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()], {
+          description:
+            'Total years of professional work the job asks for; null when it asks none',
+        }),
+        seniority: Type.Union([Type.Enum(SENIORITIES), Type.Null()], {
+          description:
+            'Career level the job asks for, such as senior in "Senior Backend Engineer"; null when it names none',
+        }),
+      },
+      { additionalProperties: false }
+    ),
   },
   { additionalProperties: false }
 )

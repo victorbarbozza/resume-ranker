@@ -12,6 +12,7 @@ export const API_ERROR_CODES = [
   'TOO_MANY_LOGINS',
   'JOB_NOT_FOUND',
   'JOB_NOT_ANALYZED',
+  'JOB_HAS_NO_REQUIREMENTS',
   'ANALYSIS_NOT_FAILED',
   'CANDIDATE_NOT_FOUND',
   'PROFILE_NOT_RETRYABLE',
@@ -44,6 +45,8 @@ export const errors: Record<
     JOB_NOT_FOUND: 'This job was deleted.',
     JOB_NOT_ANALYZED:
       'The description is still being read. Rank once it is ready.',
+    JOB_HAS_NO_REQUIREMENTS:
+      'This job has no requirements to rank against. Read its description again or edit it.',
     ANALYSIS_NOT_FAILED: 'This description is already being read again.',
     CANDIDATE_NOT_FOUND: 'This candidate was already deleted.',
     PROFILE_NOT_RETRYABLE:
@@ -68,6 +71,8 @@ export const errors: Record<
     JOB_NOT_FOUND: 'Esta vaga foi excluída.',
     JOB_NOT_ANALYZED:
       'A descrição ainda está sendo lida. Ranqueie quando estiver pronta.',
+    JOB_HAS_NO_REQUIREMENTS:
+      'Esta vaga não tem requisitos para ranquear. Leia a descrição de novo ou edite a vaga.',
     ANALYSIS_NOT_FAILED: 'Esta descrição já está sendo lida de novo.',
     CANDIDATE_NOT_FOUND: 'Este candidato já foi excluído.',
     PROFILE_NOT_RETRYABLE:

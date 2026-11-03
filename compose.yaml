@@ -33,7 +33,6 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-dev}:${POSTGRES_PASSWORD:-dev}@postgres:5432/resume_ranker
       LLM_MODEL:
-      LLM_RPM:
       AZURE_RESOURCE_NAME:
       AZURE_API_KEY:
       ANTHROPIC_API_KEY:

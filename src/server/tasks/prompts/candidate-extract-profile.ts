@@ -6,7 +6,12 @@ import {
 } from '@/server/shared/schemas/candidate.schema'
 import { AREAS } from '@/shared/areas'
 
-import { dataBlock, type PromptDefinition, systemMessage } from './prompt'
+import {
+  dataBlock,
+  type PromptDefinition,
+  SENIORITY_SECTION,
+  systemMessage,
+} from './prompt'
 
 /** Longest resume text sent to the LLM; the stored text stays whole */
 export const RESUME_PROMPT_MAX_CHARS = 30_000
@@ -61,18 +66,7 @@ export const candidateProfilePrompt: PromptDefinition<
       'Write in Brazilian Portuguese, whatever the language of the resume, keeping the canonical names of technologies.',
       'Use only what the resume states, and leave out what it does not say, because the recruiter trusts every item.',
     ],
-    sections: [
-      {
-        title: 'Seniority',
-        lines: [
-          'intern: a student, or internships only',
-          'junior: under 2 years of professional work',
-          'mid: 2 to 5 years, working on their own',
-          'senior: over 5 years, or owns the design of systems',
-          'lead: leads people or the technical direction of a team',
-        ],
-      },
-    ],
+    sections: [SENIORITY_SECTION],
   }),
   schema: extractedProfileSchema,
   data: ({ resumeText, today }) => {
