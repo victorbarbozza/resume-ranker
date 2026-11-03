@@ -18,6 +18,9 @@ export const llmModel = process.env.LLM_MODEL ?? 'fake'
 /** LLM_RPM: LLM calls per minute; each provider has a default */
 export const llmRpm = process.env.LLM_RPM
 
+/** WORKER_CONCURRENCY: tasks the worker runs at the same time; most of a task is waiting on the LLM, so a few fit one small process */
+export const workerConcurrency = Number(process.env.WORKER_CONCURRENCY ?? 4)
+
 /** OLLAMA_BASE_URL: the local Ollama by default */
 export const ollamaBaseUrl =
   process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1'

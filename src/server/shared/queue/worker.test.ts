@@ -180,6 +180,34 @@ describe('runWorker', () => {
     schedule.mockRestore()
   })
 
+  test('runs up to the concurrency at once, and takes the next as soon as one ends', async () => {
+    await Promise.all([enqueueProfile(), enqueueProfile(), enqueueProfile()])
+    const stop = new AbortController()
+    let active = 0
+    let peak = 0
+    let finished = 0
+    const handlers: TaskHandlers = {
+      'candidate.extract_profile': {
+        run: async () => {
+          active += 1
+          peak = Math.max(peak, active)
+          await new Promise((resolve) => setTimeout(resolve, 50))
+          active -= 1
+          finished += 1
+          if (finished === 3) stop.abort()
+        },
+      },
+      'maintenance.cleanup': { run: mock(async () => {}) },
+    }
+
+    const started = Date.now()
+    await runWorker(handlers, stop.signal, 2)
+
+    expect(peak).toBe(2)
+    expect(finished).toBe(3)
+    expect(Date.now() - started).toBeLessThan(1_000)
+  })
+
   test('claims the task a person waits for before the background backlog', async () => {
     await enqueueProfile()
     const analysis = await tasksRepo.enqueue('job.analyze', {
