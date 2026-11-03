@@ -142,10 +142,19 @@
   }
 
   .header {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
+  }
+
+  .subtitle {
+    flex-basis: 100%;
   }
 
   .title {
+    flex: 1 1 auto;
+    min-width: min(100%, max-content);
     font-size: 30px;
     line-height: 36px;
   }
