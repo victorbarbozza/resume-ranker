@@ -31,7 +31,7 @@ export const TASKS: Record<TaskType, TaskConfig> = {
   'maintenance.cleanup': {
     maxAttempts: 1,
     priority: 0,
-    repeatEveryMs: 10 * 60_000,
+    repeatEveryMs: 24 * 60 * 60_000,
   },
 }
 

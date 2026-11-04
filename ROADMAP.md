@@ -45,7 +45,7 @@ Implementation plan, in order. The work goes from the core outwards: data, queue
 - [x] Migrations as their own step before the app (`src/migrate.ts`, `bun run db:migrate`), behind an advisory lock so two runs never overlap
 - [x] `bun run dev` follows the deploy steps: Docker, Postgres, migrations, web and worker, health check
 - [x] `migrate` service in compose: the app and the worker start only after it exits successfully
-- [x] Maintenance as a recurring task (`maintenance.cleanup`, every 10 minutes) that deletes old `rate_limits` windows and expired sessions; the worker keeps exactly one run pending
+- [x] Maintenance as a recurring task (`maintenance.cleanup`, once a day) that deletes old `rate_limits` windows and expired sessions; the worker keeps exactly one run pending
 - [x] Worker loop started by `src/server.ts`, in the same process as the API, so the app is one container
 - [x] `worker` service in compose
 - [x] Integration tests: claim, concurrent claims, retry, dead, lock recovery
